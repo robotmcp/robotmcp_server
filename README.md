@@ -6,7 +6,7 @@ A Model Context Protocol (MCP) server with OAuth 2.1 authentication, Supabase us
 
 ```bash
 # Install via pipx
-pipx install git+https://github.com/mokcontoro/simple_mcp_server.git
+pipx install git+https://github.com/stex2005/robotmcp_server.git
 
 # Run (opens browser for first-time setup)
 simple-mcp-server
@@ -53,7 +53,32 @@ See [docs/project_plan.md](docs/project_plan.md) for architecture details.
 | `simple-mcp-server` | Start server in background |
 | `simple-mcp-server stop` | Stop server and tunnel |
 | `simple-mcp-server status` | Show current status |
+| `simple-mcp-server verify` | Comprehensive verification (server, tunnel, DNS, connectivity) |
 | `simple-mcp-server logout` | Clear credentials and stop |
+
+### Verification Command
+
+The `verify` command performs comprehensive diagnostics:
+
+```bash
+simple-mcp-server verify
+```
+
+**Checks performed:**
+1. **Configuration** - Verifies tunnel token and configuration exist
+2. **Local Server** - Tests server connectivity on `localhost:8766`
+3. **Cloudflared Process** - Checks if cloudflared is running
+4. **Tunnel Authentication** - Analyzes logs to verify tunnel is authenticated and connected
+5. **DNS Resolution** - Verifies DNS record exists and resolves correctly
+6. **Tunnel Endpoints** - Tests endpoints through the tunnel (`/`, `/health`)
+
+**Output includes:**
+- ✓/✗ status for each check
+- Detailed error messages with actionable fixes
+- Summary with pass/fail statistics
+- Next steps if issues are found
+
+Use this command to diagnose connectivity issues, verify DNS configuration, and ensure your tunnel is working correctly.
 
 ## Environment Variables
 
@@ -118,6 +143,7 @@ For ros-mcp-server merge: replace `tools.py` and set `ENABLE_OAUTH=false`.
 
 ## Version History
 
+- **v1.17.0**: Enhanced `verify` command with comprehensive diagnostics (server, tunnel, DNS, connectivity)
 - **v1.16.2**: Use importlib.metadata for version (single source of truth from pyproject.toml)
 - **v1.16.1**: Fix SSE endpoint to support shared member access (consistent with /mcp)
 - **v1.16.0**: Display version in CLI status output

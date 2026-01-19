@@ -120,6 +120,19 @@ def check_cloudflared_process() -> bool:
             return False
 
 
+def get_cloudflared_logs(lines: int = 20) -> list[str]:
+    """Get recent cloudflared log lines."""
+    log_file = CONFIG_DIR / "cloudflared.log"
+    if not log_file.exists():
+        return []
+    try:
+        with open(log_file, "r") as f:
+            all_lines = f.readlines()
+            return all_lines[-lines:] if len(all_lines) > lines else all_lines
+    except Exception:
+        return []
+
+
 def is_server_running() -> bool:
     """Check if MCP server is already running on port 8766."""
     if platform.system() == "Windows":
@@ -763,6 +776,273 @@ def cmd_status():
     print("\n" + "=" * 50 + "\n")
 
 
+def cmd_verify():
+    """Comprehensive verification of server, tunnel, and connectivity."""
+    config = load_config()
+    
+    print("\n" + "=" * 70)
+    print("  Comprehensive Tunnel & Server Verification")
+    print("=" * 70)
+    
+    # Initialize results tracking
+    results = {
+        "config": False,
+        "server_local": False,
+        "cloudflared": False,
+        "tunnel_auth": False,
+        "dns": False,
+        "tunnel_endpoints": False
+    }
+    
+    # ========== 1. Configuration Check ==========
+    print("\n[1] Configuration")
+    print("-" * 70)
+    if not config.has_tunnel():
+        print("  ✗ Tunnel not configured")
+        print("  → Run: simple-mcp-server start")
+        print("\n" + "=" * 70)
+        return
+    results["config"] = True
+    print(f"  ✓ Configuration found")
+    print(f"    Robot Name:  {config.robot_name}")
+    print(f"    Tunnel URL:  {config.tunnel_url}")
+    print(f"    Token:       {'Present' if config.tunnel_token else 'Missing'} ({len(config.tunnel_token) if config.tunnel_token else 0} chars)")
+    
+    tunnel_url = config.tunnel_url
+    from urllib.parse import urlparse
+    parsed = urlparse(tunnel_url)
+    hostname = parsed.hostname
+    
+    # ========== 2. Local Server Test ==========
+    print("\n[2] Local Server Connection")
+    print("-" * 70)
+    server_running = False
+    running, pid = is_daemon_running()
+    if running:
+        print(f"  ✓ Server process running (PID: {pid})")
+        server_running = True
+    elif is_server_running():
+        print(f"  ✓ Server running on port 8766 (not managed)")
+        server_running = True
+    else:
+        print(f"  ✗ Server not running")
+        print(f"  → Run: simple-mcp-server start")
+        print("\n" + "=" * 70)
+        return
+    
+    # Test local HTTP connection
+    try:
+        response = requests.get("http://localhost:8766/health", timeout=2)
+        if response.status_code == 200:
+            print(f"  ✓ Local server responding")
+            print(f"    http://localhost:8766/health → HTTP {response.status_code}")
+            results["server_local"] = True
+        else:
+            print(f"  ⚠ Local server responding with HTTP {response.status_code}")
+    except requests.exceptions.ConnectionError:
+        print(f"  ✗ Cannot connect to localhost:8766")
+        print(f"  → Check if server is actually running")
+    except Exception as e:
+        print(f"  ✗ Error testing local server: {str(e)[:50]}")
+    
+    # ========== 3. Cloudflared Process ==========
+    print("\n[3] Cloudflared Process")
+    print("-" * 70)
+    if check_cloudflared_process():
+        print(f"  ✓ Cloudflared process running")
+        results["cloudflared"] = True
+        
+        # Check cloudflared version
+        cloudflared_path = get_cloudflared_path()
+        try:
+            result = subprocess.run(
+                [cloudflared_path, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            if result.returncode == 0:
+                version = result.stdout.split('\n')[0] if result.stdout else "unknown"
+                print(f"    Version: {version}")
+        except Exception:
+            pass
+    else:
+        print(f"  ✗ Cloudflared process not running")
+        print(f"  → Run: simple-mcp-server start")
+        print("\n" + "=" * 70)
+        return
+    
+    # ========== 4. Tunnel Authentication & Status ==========
+    print("\n[4] Tunnel Authentication & Status")
+    print("-" * 70)
+    logs = get_cloudflared_logs(100)
+    auth_ok = False
+    connections = 0
+    last_config = None
+    
+    for line in logs:
+        if "Settings: map[token:" in line:
+            print(f"  ✓ Token loaded by cloudflared")
+            auth_ok = True
+        if "Registered tunnel connection" in line:
+            connections += 1
+            import re
+            match = re.search(r'connection=([a-f0-9-]+)', line)
+            if match:
+                conn_id = match.group(1)[:8]
+                print(f"  ✓ Tunnel connection registered: {conn_id}...")
+        if "Updated to new configuration" in line:
+            import json
+            import re
+            json_match = re.search(r'config="({[^"]+})"', line)
+            if json_match:
+                try:
+                    config_json = json_match.group(1).replace('\\"', '"')
+                    config_data = json.loads(config_json)
+                    last_config = config_data
+                    if "ingress" in config_data:
+                        print(f"  ✓ Configuration received from Cloudflare")
+                        for rule in config_data["ingress"]:
+                            h = rule.get("hostname", "*")
+                            s = rule.get("service", "unknown")
+                            if h != "*":
+                                print(f"    Rule: {h} → {s}")
+                except Exception:
+                    pass
+        if "ERR" in line and any(x in line.lower() for x in ["auth", "unauthorized", "forbidden", "401", "403"]):
+            print(f"  ✗ Authentication error in logs")
+            print(f"    {line.strip()[:80]}")
+            auth_ok = False
+    
+    if auth_ok and connections > 0:
+        print(f"  ✓ Authentication: SUCCESS")
+        print(f"  ✓ Active connections: {connections}")
+        results["tunnel_auth"] = True
+    else:
+        print(f"  ⚠ Authentication status unclear")
+        if not auth_ok:
+            print(f"    → Check cloudflared logs for errors")
+    
+    # ========== 5. DNS Resolution ==========
+    print("\n[5] DNS Resolution")
+    print("-" * 70)
+    if hostname:
+        try:
+            import socket
+            ip_addresses = socket.gethostbyname_ex(hostname)
+            print(f"  ✓ DNS record exists for {hostname}")
+            print(f"    Resolves to: {', '.join(ip_addresses[2][:3])}")
+            
+            # Check if Cloudflare IPs
+            cf_ips = [ip for ip in ip_addresses[2] if any(ip.startswith(p) for p in ['104.', '172.', '198.', '173.'])]
+            if cf_ips:
+                print(f"    → Cloudflare IP detected ✓")
+            else:
+                print(f"    ⚠ IPs don't look like Cloudflare")
+            
+            results["dns"] = True
+        except socket.gaierror as e:
+            print(f"  ✗ DNS resolution failed: {e}")
+            print(f"    Domain: {hostname}")
+            print(f"    → DNS record missing! Add CNAME in Cloudflare:")
+            print(f"       Name: {config.robot_name}")
+            print(f"       Target: <tunnel-id>.cfargotunnel.com")
+            print(f"       Proxy: Proxied (orange cloud) ✓")
+            results["dns"] = False
+        except Exception as e:
+            print(f"  ✗ DNS check error: {e}")
+            results["dns"] = False
+    else:
+        print(f"  ✗ Invalid tunnel URL")
+        results["dns"] = False
+    
+    # ========== 6. Tunnel Endpoint Tests ==========
+    print("\n[6] Tunnel Endpoint Tests")
+    print("-" * 70)
+    if not results["dns"]:
+        print(f"  ⚠ Skipping tunnel tests (DNS not configured)")
+        print(f"    → Fix DNS first, then re-run verify")
+    else:
+        endpoints = [
+            ("/", "Root endpoint"),
+            ("/health", "Health check"),
+        ]
+        
+        all_endpoints_ok = True
+        for endpoint, description in endpoints:
+            url = f"{tunnel_url}{endpoint}"
+            try:
+                response = requests.get(url, timeout=15, allow_redirects=True)
+                if response.status_code == 200:
+                    print(f"  ✓ {endpoint:15} {description:20} HTTP {response.status_code}")
+                else:
+                    print(f"  ⚠ {endpoint:15} {description:20} HTTP {response.status_code}")
+                    if response.status_code in [502, 503]:
+                        print(f"      → Cloudflared can't reach localhost:8766")
+                    all_endpoints_ok = False
+            except requests.exceptions.Timeout:
+                print(f"  ✗ {endpoint:15} {description:20} Timeout (15s)")
+                all_endpoints_ok = False
+            except requests.exceptions.ConnectionError as e:
+                error_msg = str(e)
+                print(f"  ✗ {endpoint:15} {description:20} Connection failed")
+                if "Name or service not known" in error_msg or "nodename" in error_msg:
+                    print(f"      → DNS resolution issue")
+                elif "Connection refused" in error_msg:
+                    print(f"      → Tunnel not accepting connections")
+                elif "Max retries" in error_msg:
+                    print(f"      → Cannot reach tunnel endpoint")
+                all_endpoints_ok = False
+            except requests.exceptions.SSLError as e:
+                print(f"  ✗ {endpoint:15} {description:20} SSL Error")
+                print(f"      → {str(e)[:60]}")
+                all_endpoints_ok = False
+            except Exception as e:
+                print(f"  ✗ {endpoint:15} {description:20} Error: {str(e)[:50]}")
+                all_endpoints_ok = False
+        
+        results["tunnel_endpoints"] = all_endpoints_ok
+    
+    # ========== Summary ==========
+    print("\n" + "=" * 70)
+    print("  Verification Summary")
+    print("=" * 70)
+    
+    total_checks = len(results)
+    passed_checks = sum(1 for v in results.values() if v)
+    
+    print(f"\n  Checks passed: {passed_checks}/{total_checks}")
+    print(f"\n  Status:")
+    print(f"    [1] Configuration:        {'✓' if results['config'] else '✗'}")
+    print(f"    [2] Local Server:         {'✓' if results['server_local'] else '✗'}")
+    print(f"    [3] Cloudflared Process:  {'✓' if results['cloudflared'] else '✗'}")
+    print(f"    [4] Tunnel Authentication: {'✓' if results['tunnel_auth'] else '✗'}")
+    print(f"    [5] DNS Resolution:       {'✓' if results['dns'] else '✗'}")
+    print(f"    [6] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}")
+    
+    if all(results.values()):
+        print(f"\n  ✓ All checks passed! Your MCP server is fully operational.")
+        print(f"\n  Access your server at:")
+        print(f"    {tunnel_url}/mcp")
+        print(f"    {tunnel_url}/sse")
+    else:
+        print(f"\n  ⚠ Some checks failed. See details above.")
+        print(f"\n  Next steps:")
+        if not results["dns"]:
+            print(f"    1. Add DNS CNAME record in Cloudflare dashboard")
+            print(f"       → Go to: https://dash.cloudflare.com")
+            print(f"       → Domain: robotmcp.ai → DNS → Records")
+            print(f"       → Add: {config.robot_name} CNAME → <tunnel-id>.cfargotunnel.com")
+        if not results["tunnel_endpoints"] and results["dns"]:
+            print(f"    1. Check cloudflared logs: tail -f ~/.simple-mcp-server/cloudflared.log")
+            print(f"    2. Verify server is running: curl http://localhost:8766/health")
+        if not results["server_local"]:
+            print(f"    1. Start server: simple-mcp-server start")
+        print(f"    2. Re-run verification: simple-mcp-server verify")
+    
+    print("=" * 70 + "\n")
+
+
 def cmd_logout():
     """Log out and clear credentials."""
     config = load_config()
@@ -804,6 +1084,7 @@ COMMANDS:
     stop        Stop the running server and tunnel
     restart     Restart the server
     status      Show current status and configuration
+    verify      Test tunnel connectivity and endpoints
     login       Log in to RobotMCP (browser OAuth)
     logout      Log out and clear stored credentials
     version     Show version information
@@ -854,6 +1135,7 @@ Commands:
   stop      Stop the running server
   restart   Restart the server
   status    Show current status
+  verify    Test tunnel connectivity
   logout    Log out and clear credentials
   version   Show version
   help      Show detailed help
@@ -869,7 +1151,7 @@ Examples:
         "command",
         nargs="?",
         default="start",
-        choices=["start", "stop", "restart", "status", "login", "logout", "version", "help"],
+        choices=["start", "stop", "restart", "status", "login", "logout", "verify", "version", "help"],
         help="Command to run (default: start)"
     )
 
@@ -903,6 +1185,8 @@ Examples:
         cmd_login()
     elif args.command == "logout":
         cmd_logout()
+    elif args.command == "verify":
+        cmd_verify()
     elif args.command == "version":
         cmd_version()
     elif args.command == "help":
