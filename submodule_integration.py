@@ -185,29 +185,6 @@ def _discover_and_register_submodule(
     return result
 
 
-def _create_ws_manager_if_needed(config: dict[str, Any], package_name: str) -> dict[str, Any]:
-    """Create WebSocketManager for ROS-based submodules if needed.
-
-    This is a special case for ros-mcp-server compatibility.
-    """
-    if package_name == "ros_mcp" and "ws_manager" not in config:
-        try:
-            from ros_mcp.utils.websocket import WebSocketManager
-
-            rosbridge_ip = config.get("rosbridge_ip", "127.0.0.1")
-            rosbridge_port = config.get("rosbridge_port", 9090)
-            default_timeout = config.get("default_timeout", 5.0)
-
-            config["ws_manager"] = WebSocketManager(
-                rosbridge_ip, rosbridge_port, default_timeout=default_timeout
-            )
-            logger.info(f"[INTEGRATION] Created WebSocketManager for ros_mcp")
-        except ImportError:
-            logger.warning("[INTEGRATION] Could not import WebSocketManager for ros_mcp")
-
-    return config
-
-
 def discover_and_register_all(
     mcp: FastMCP,
     root: Path | None = None,
@@ -219,9 +196,6 @@ def discover_and_register_all(
         mcp: FastMCP instance to register with
         root: Root directory to scan (defaults to script's parent directory)
         config: Global configuration to pass to all submodules
-            Common config keys:
-            - rosbridge_ip: IP for ROS bridge (default: "127.0.0.1")
-            - rosbridge_port: Port for ROS bridge (default: 9090)
 
     Returns:
         Dict mapping submodule names to their registration results.
@@ -284,8 +258,8 @@ def discover_and_register_all(
         # Get integration config from pyproject.toml
         integration_config = _get_integration_config(pyproject)
 
-        # Create submodule-specific config (might need ws_manager for ROS)
-        submodule_config = _create_ws_manager_if_needed(config.copy(), package_name)
+        # Copy config for this submodule
+        submodule_config = config.copy()
 
         logger.info(f"[INTEGRATION] Registering {submodule['name']} (package: {package_name})")
 
@@ -307,30 +281,21 @@ def discover_and_register_all(
     return results
 
 
-# Convenience function for backwards compatibility
 def register_all_submodules(
     mcp: FastMCP,
-    rosbridge_ip: str = "127.0.0.1",
-    rosbridge_port: int = 9090,
     **extra_config,
 ) -> dict[str, dict[str, bool]]:
     """Register all MCP submodules with the given FastMCP instance.
 
-    This is a convenience function that wraps discover_and_register_all()
-    with common ROS configuration.
+    This is a convenience function that wraps discover_and_register_all().
+    Submodules are responsible for reading their own configuration from
+    environment variables.
 
     Args:
         mcp: FastMCP instance to register with
-        rosbridge_ip: IP address of the ROS bridge server
-        rosbridge_port: Port of the ROS bridge server
         **extra_config: Additional configuration to pass to submodules
 
     Returns:
         Dict mapping submodule names to their registration results.
     """
-    config = {
-        "rosbridge_ip": rosbridge_ip,
-        "rosbridge_port": rosbridge_port,
-        **extra_config,
-    }
-    return discover_and_register_all(mcp, config=config)
+    return discover_and_register_all(mcp, config=extra_config if extra_config else None)

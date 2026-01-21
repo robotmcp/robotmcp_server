@@ -2,7 +2,7 @@
 
 This server runs on the user's machine (local computer or robot).
 It handles:
-- ROS MCP tools via ros-mcp-server integration
+- MCP tools via submodule integration
 - MCP protocol endpoints via Streamable HTTP (/mcp)
 - OAuth flow for MCP clients (optional, via oauth/)
 - Legacy SSE endpoints for backward compatibility (/sse, /message)
@@ -50,10 +50,6 @@ MCP_TRANSPORT = os.getenv("MCP_TRANSPORT", "streamable-http")
 MCP_HOST = os.getenv("MCP_HOST", "0.0.0.0")
 MCP_PORT = int(os.getenv("MCP_PORT", "8766"))
 
-# ROS Bridge configuration
-ROSBRIDGE_IP = os.getenv("ROSBRIDGE_IP", "127.0.0.1")
-ROSBRIDGE_PORT = int(os.getenv("ROSBRIDGE_PORT", "9090"))
-
 # OAuth toggle - set to "false" for ros-mcp-server mode (no auth)
 ENABLE_OAUTH = os.getenv("ENABLE_OAUTH", "true").lower() == "true"
 
@@ -81,7 +77,7 @@ logger.info(f"[STARTUP] Config loaded - valid: {local_config.is_valid()}, email:
 SERVER_URL = local_config.tunnel_url or os.getenv("SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app")
 logger.info(f"[STARTUP] SERVER_URL: {SERVER_URL}")
 logger.info(f"[STARTUP] OAuth enabled: {ENABLE_OAUTH}")
-logger.info(f"[STARTUP] ROS Bridge: {ROSBRIDGE_IP}:{ROSBRIDGE_PORT}")
+logger.info("[STARTUP] Submodule auto-discovery enabled")
 
 # ============== FastMCP Server ==============
 from fastmcp import FastMCP
@@ -91,11 +87,7 @@ from submodule_integration import register_all_submodules
 mcp = FastMCP("simple-mcp-server")
 
 # Auto-discover and register tools/resources/prompts from all git submodules
-register_all_submodules(
-    mcp,
-    rosbridge_ip=ROSBRIDGE_IP,
-    rosbridge_port=ROSBRIDGE_PORT,
-)
+register_all_submodules(mcp)
 
 # ============== OAuth Authentication Middleware for MCP ==============
 from oauth.middleware import MCPOAuthMiddleware
@@ -174,11 +166,7 @@ async def root():
             "recommended": "/mcp",
             "fallback": "/sse (use if /mcp doesn't work)",
         },
-        "tools": "ROS MCP tools (topics, services, actions, parameters, nodes, etc.)",
-        "rosbridge": {
-            "ip": ROSBRIDGE_IP,
-            "port": ROSBRIDGE_PORT,
-        },
+        "tools": "Auto-discovered from submodules",
         "oauth_enabled": ENABLE_OAUTH
     }
     if ENABLE_OAUTH:
