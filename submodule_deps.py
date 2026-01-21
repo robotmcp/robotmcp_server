@@ -66,23 +66,31 @@ def install_submodule(submodule_path: Path, verbose: bool = True) -> bool:
     Returns:
         True if installation succeeded, False otherwise.
     """
-    try:
-        cmd = [sys.executable, "-m", "pip", "install", "-e", str(submodule_path), "-q"]
-        result = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120  # 2 minute timeout
-        )
-        return result.returncode == 0
-    except subprocess.TimeoutExpired:
-        if verbose:
-            print(f"  [TIMEOUT] Installation of {submodule_path.name} timed out")
-        return False
-    except Exception as e:
-        if verbose:
-            print(f"  [ERROR] Failed to install {submodule_path.name}: {e}")
-        return False
+    # Try different pip invocation methods
+    pip_commands = [
+        [sys.executable, "-m", "pip", "install", "-e", str(submodule_path)],
+        ["pip", "install", "-e", str(submodule_path)],
+        ["pip3", "install", "-e", str(submodule_path)],
+    ]
+
+    for cmd in pip_commands:
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120  # 2 minute timeout
+            )
+            if result.returncode == 0:
+                return True
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            continue
+        except Exception:
+            continue
+
+    if verbose:
+        print(f"  [ERROR] Could not install {submodule_path.name} - pip not available")
+    return False
 
 
 def discover_and_install_submodules(root: Path | None = None, verbose: bool = True) -> dict:
