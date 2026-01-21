@@ -21,6 +21,7 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from config import load_config, clear_config, CONFIG_FILE
+from submodule_deps import ensure_submodule_deps
 
 # Load environment: .env (local override) or .env.public (bundled defaults)
 _env_file = Path(".env")
@@ -512,6 +513,13 @@ def cmd_start():
         print("\n[WARNING] cloudflared Windows service is running!")
         print("  This may cause conflicts. Stop it with:")
         print("  > net stop cloudflared  (as Admin)")
+        print()
+
+    # Auto-discover and install submodule dependencies
+    if not ensure_submodule_deps():
+        print("\n[WARNING] Some submodule dependencies failed to install.")
+        print("  The server may not work correctly.")
+        print("  Try manually: pip install -e ./ros-mcp-server")
         print()
 
     # Cleanup old processes
