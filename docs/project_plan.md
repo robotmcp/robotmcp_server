@@ -80,6 +80,17 @@ robotmcp_server/
 
 ---
 
+## Submodule Integration
+
+The server auto-discovers MCP tools from git submodules. See [docs/submodule-integration.md](submodule-integration.md) for the full guide.
+
+**Discovery methods (in order of precedence):**
+1. Custom `register_function` in pyproject.toml
+2. `<package>/integration.py` with `register(mcp, **kwargs)` (recommended)
+3. Convention-based: `tools/`, `resources/`, `prompts/` with `register_all_*()` functions
+
+---
+
 ## For ros-mcp-server Merge
 
 1. Replace `tools.py` with ROS tools
