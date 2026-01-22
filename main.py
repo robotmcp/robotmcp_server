@@ -38,7 +38,7 @@ else:
 
 # Version from pyproject.toml (single source of truth)
 try:
-    VERSION = get_version("simple-mcp-server")
+    VERSION = get_version("robotmcp-server")
 except Exception:
     VERSION = "0.0.0"  # Fallback for development
 
@@ -90,7 +90,7 @@ from fastmcp import FastMCP  # noqa: E402
 from submodule_integration import register_all_submodules  # noqa: E402
 
 # Create MCP instance
-mcp = FastMCP("simple-mcp-server")
+mcp = FastMCP("robotmcp-server")
 
 # Auto-discover and register tools/resources/prompts from all git submodules
 register_all_submodules(mcp)
@@ -115,7 +115,7 @@ mcp_http_app = mcp.http_app(
 # ============== FastAPI App ==============
 # Pass MCP app's lifespan to FastAPI for proper initialization
 app = FastAPI(
-    title="Simple MCP Server",
+    title="RobotMCP Server",
     description="MCP server with ROS integration and OAuth 2.1",
     version=VERSION,
     lifespan=mcp_http_app.lifespan,  # Required for FastMCP task group initialization
@@ -164,7 +164,7 @@ async def health_check():
 async def root():
     """Root endpoint with server info."""
     response = {
-        "name": "Simple MCP Server",
+        "name": "RobotMCP Server",
         "version": VERSION,
         "transport": MCP_TRANSPORT,
         "endpoints": {

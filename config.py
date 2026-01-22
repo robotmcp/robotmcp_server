@@ -1,4 +1,4 @@
-"""Config management for simple-mcp-server."""
+"""Config management for robotmcp-server."""
 
 import json
 import os
@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Optional
 
 
-CONFIG_DIR = Path.home() / ".simple-mcp-server"
+CONFIG_DIR = Path.home() / ".robotmcp-server"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 

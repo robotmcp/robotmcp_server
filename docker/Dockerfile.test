@@ -12,7 +12,7 @@ COPY . .
 RUN pipx install .
 
 # Verify installation
-RUN which simple-mcp-server
+RUN which robotmcp-server
 
 # Default command
-CMD ["simple-mcp-server"]
+CMD ["robotmcp-server"]

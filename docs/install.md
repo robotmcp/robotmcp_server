@@ -2,7 +2,7 @@
 
 **Copyright (c) 2025 Contoro. All rights reserved.**
 
-This guide covers installing and using simple-mcp-server (v1.8.0) on your local machine.
+This guide covers installing and using robotmcp-server (v1.8.0) on your local machine.
 
 > **Note:** CLI login and tunnel creation are handled by the cloud service at `https://app.robotmcp.ai`.
 
@@ -13,13 +13,13 @@ This guide covers installing and using simple-mcp-server (v1.8.0) on your local 
 ### Install via pipx
 
 ```bash
-pipx install git+https://github.com/stex2005/robotmcp_server.git
+pipx install git+https://github.com/robotmcp/robotmcp_server.git
 ```
 
 ### Run
 
 ```bash
-simple-mcp-server
+robotmcp-server
 ```
 
 On first run:
@@ -31,16 +31,16 @@ On first run:
 ### Update
 
 ```bash
-pipx uninstall simple-mcp-server
-pipx install git+https://github.com/mokcontoro/simple_mcp_server.git
+pipx uninstall robotmcp-server
+pipx install git+https://github.com/robotmcp/robotmcp_server.git
 ```
 
 ### Uninstall
 
 ```bash
-simple-mcp-server stop
-pipx uninstall simple-mcp-server
-rm -rf ~/.simple-mcp-server  # Remove config (optional)
+robotmcp-server stop
+pipx uninstall robotmcp-server
+rm -rf ~/.robotmcp-server  # Remove config (optional)
 ```
 
 **Note (WSL users):** The CLI automatically detects WSL and handles callback URLs for Windows browser authentication.
@@ -97,8 +97,8 @@ cloudflared --version
 ### Step 1: Clone the Repository
 
 ```bash
-git clone https://github.com/mokcontoro/simple_mcp_server.git
-cd simple_mcp_server
+git clone https://github.com/robotmcp/robotmcp_server.git
+cd robotmcp_server
 ```
 
 ### Step 2: Create Virtual Environment
@@ -148,13 +148,13 @@ This will:
 1. **Open browser** for login/signup via Supabase
 2. **Prompt for robot name** (e.g., `myrobot` becomes `myrobot.robotmcp.ai`)
 3. **Create Cloudflare tunnel** automatically
-4. **Save configuration** to `~/.simple-mcp-server/config.json`
+4. **Save configuration** to `~/.robotmcp-server/config.json`
 5. **Start the MCP server** in background (daemon mode)
 
 You'll see a startup banner like this:
 ```
 ==================================================
-  Simple MCP Server
+  RobotMCP Server
 ==================================================
   User:   you@example.com
   SSE:    https://myrobot.robotmcp.ai/sse
@@ -163,7 +163,7 @@ You'll see a startup banner like this:
   (ChatGPT, Claude, etc.)
 
   Server running in background.
-  Run 'simple-mcp-server stop' to stop.
+  Run 'robotmcp-server stop' to stop.
 ==================================================
 ```
 
@@ -173,16 +173,16 @@ You'll see a startup banner like this:
 
 | Command | Description |
 |---------|-------------|
-| `simple-mcp-server` | Start server in background (default) |
-| `simple-mcp-server start` | Start server in background |
-| `simple-mcp-server stop` | Stop server and tunnel |
-| `simple-mcp-server restart` | Restart the server |
-| `simple-mcp-server status` | Show current status (PID, log file) |
-| `simple-mcp-server logout` | Clear credentials and stop |
-| `simple-mcp-server version` | Show version info |
-| `simple-mcp-server help` | Show detailed help |
+| `robotmcp-server` | Start server in background (default) |
+| `robotmcp-server start` | Start server in background |
+| `robotmcp-server stop` | Stop server and tunnel |
+| `robotmcp-server restart` | Restart the server |
+| `robotmcp-server status` | Show current status (PID, log file) |
+| `robotmcp-server logout` | Clear credentials and stop |
+| `robotmcp-server version` | Show version info |
+| `robotmcp-server help` | Show detailed help |
 
-**Note:** The server runs as a background daemon. Logs are written to `~/.simple-mcp-server/server.log`.
+**Note:** The server runs as a background daemon. Logs are written to `~/.robotmcp-server/server.log`.
 
 ### Legacy Flag Support
 
@@ -239,7 +239,7 @@ Output: "pong from owner's MCP server"
 
 ## Configuration
 
-Configuration is stored in `~/.simple-mcp-server/config.json`:
+Configuration is stored in `~/.robotmcp-server/config.json`:
 
 ```json
 {
@@ -314,17 +314,17 @@ This 403 error means you're trying to connect with a different account than the 
 ### pipx Install
 
 ```bash
-pipx uninstall simple-mcp-server
-pipx install git+https://github.com/mokcontoro/simple_mcp_server.git
+pipx uninstall robotmcp-server
+pipx install git+https://github.com/robotmcp/robotmcp_server.git
 ```
 
 ### Manual Install
 
 ```bash
-cd simple_mcp_server
+cd robotmcp_server
 git pull
 pip install -r requirements.txt
-simple-mcp-server restart
+robotmcp-server restart
 ```
 
 ---
@@ -334,18 +334,18 @@ simple-mcp-server restart
 ### pipx Install
 
 ```bash
-simple-mcp-server stop
-pipx uninstall simple-mcp-server
-rm -rf ~/.simple-mcp-server  # Remove config (optional)
+robotmcp-server stop
+pipx uninstall robotmcp-server
+rm -rf ~/.robotmcp-server  # Remove config (optional)
 ```
 
 ### Manual Install
 
 ```bash
-simple-mcp-server stop
-simple-mcp-server logout
+robotmcp-server stop
+robotmcp-server logout
 cd ..
-rm -rf simple_mcp_server
+rm -rf robotmcp_server
 ```
 
 ---
@@ -372,4 +372,4 @@ For developers integrating with the server:
 ## Support
 
 For issues and feature requests, visit:
-https://github.com/mokcontoro/simple_mcp_server/issues
+https://github.com/robotmcp/robotmcp_server/issues

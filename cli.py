@@ -1,4 +1,4 @@
-"""CLI entry point for simple-mcp-server.
+"""CLI entry point for robotmcp-server.
 
 Copyright (c) 2025 Contoro. All rights reserved.
 
@@ -37,7 +37,7 @@ else:
 
 # Version from pyproject.toml (single source of truth)
 try:
-    VERSION = get_version("simple-mcp-server")
+    VERSION = get_version("robotmcp-server")
 except Exception:
     VERSION = "0.0.0"  # Fallback for development
 
@@ -51,7 +51,7 @@ CLOUDFLARED_RELEASES_URL = (
 )
 
 # Daemon settings
-CONFIG_DIR = Path.home() / ".simple-mcp-server"
+CONFIG_DIR = Path.home() / ".robotmcp-server"
 PID_FILE = CONFIG_DIR / "server.pid"
 LOG_FILE = CONFIG_DIR / "server.log"
 
@@ -308,9 +308,7 @@ def is_local_bin_in_path() -> bool:
 def add_to_bashrc() -> bool:
     """Add ~/.local/bin to PATH in ~/.bashrc."""
     bashrc = Path.home() / ".bashrc"
-    export_line = (
-        '\n# Added by simple-mcp-server\nexport PATH="$HOME/.local/bin:$PATH"\n'
-    )
+    export_line = '\n# Added by robotmcp-server\nexport PATH="$HOME/.local/bin:$PATH"\n'
 
     try:
         # Check if already added
@@ -475,7 +473,7 @@ def cmd_start():
     running, pid = is_daemon_running()
     if running:
         print(f"Server is already running (PID: {pid})")
-        print("  Use 'simple-mcp-server stop' to stop it first")
+        print("  Use 'robotmcp-server stop' to stop it first")
         return
 
     config = load_config()
@@ -493,8 +491,8 @@ def cmd_start():
     # Check tunnel config
     if not config.has_tunnel():
         print("\n[ERROR] Tunnel not configured.")
-        print("  Run: simple-mcp-server logout")
-        print("  Then: simple-mcp-server start")
+        print("  Run: robotmcp-server logout")
+        print("  Then: robotmcp-server start")
         sys.exit(1)
 
     # Check cloudflared (auto-install on Linux/macOS if needed)
@@ -530,7 +528,7 @@ def cmd_start():
     mcp_url = f"{config.tunnel_url}/mcp"
     sse_url = f"{config.tunnel_url}/sse"
     print("\n" + "=" * 60)
-    print("  Simple MCP Server - Started")
+    print("  RobotMCP Server - Started")
     print("=" * 60)
     print(f"  User:    {config.email}")
     print()
@@ -553,8 +551,8 @@ def cmd_start():
     print()
     print("=" * 60)
     print(f"  Log:    {LOG_FILE}")
-    print("  Stop:   simple-mcp-server stop")
-    print("  Status: simple-mcp-server status")
+    print("  Stop:   robotmcp-server stop")
+    print("  Status: robotmcp-server status")
     print("=" * 60 + "\n")
 
     # Daemonize on Unix, use subprocess on Windows
@@ -696,7 +694,7 @@ def cmd_login():
         config = load_config()
         print(f"Logged in as: {config.email}")
         print(f"Robot URL: {config.tunnel_url}")
-        print("\nRun 'simple-mcp-server start' to start the server.")
+        print("\nRun 'robotmcp-server start' to start the server.")
     else:
         print("\n[ERROR] Login failed. Please try again.")
         sys.exit(1)
@@ -707,7 +705,7 @@ def cmd_status():
     config = load_config()
 
     print("\n" + "=" * 50)
-    print(f"  Simple MCP Server Status (v{VERSION})")
+    print(f"  RobotMCP Server Status (v{VERSION})")
     print("=" * 50)
 
     # Account
@@ -725,7 +723,7 @@ def cmd_status():
                     print(f"  Org:      {user_info['organization']}")
     else:
         print("  Status:   Not logged in")
-        print("  Action:   Run 'simple-mcp-server start' to log in")
+        print("  Action:   Run 'robotmcp-server start' to log in")
 
     # Tunnel
     print("\n[Tunnel]")
@@ -808,7 +806,7 @@ def cmd_verify():
     print("-" * 70)
     if not config.has_tunnel():
         print("  ✗ Tunnel not configured")
-        print("  → Run: simple-mcp-server start")
+        print("  → Run: robotmcp-server start")
         print("\n" + "=" * 70)
         return
     results["config"] = True
@@ -835,7 +833,7 @@ def cmd_verify():
         print("  ✓ Server running on port 8766 (not managed)")
     else:
         print("  ✗ Server not running")
-        print("  → Run: simple-mcp-server start")
+        print("  → Run: robotmcp-server start")
         print("\n" + "=" * 70)
         return
 
@@ -877,7 +875,7 @@ def cmd_verify():
             pass
     else:
         print("  ✗ Cloudflared process not running")
-        print("  → Run: simple-mcp-server start")
+        print("  → Run: robotmcp-server start")
         print("\n" + "=" * 70)
         return
 
@@ -1060,12 +1058,12 @@ def cmd_verify():
             )
         if not results["tunnel_endpoints"] and results["dns"]:
             print(
-                "    1. Check cloudflared logs: tail -f ~/.simple-mcp-server/cloudflared.log"
+                "    1. Check cloudflared logs: tail -f ~/.robotmcp-server/cloudflared.log"
             )
             print("    2. Verify server is running: curl http://localhost:8766/health")
         if not results["server_local"]:
-            print("    1. Start server: simple-mcp-server start")
-        print("    2. Re-run verification: simple-mcp-server verify")
+            print("    1. Start server: robotmcp-server start")
+        print("    2. Re-run verification: robotmcp-server verify")
 
     print("=" * 70 + "\n")
 
@@ -1093,18 +1091,18 @@ def cmd_logout():
 
 def cmd_version():
     """Show version information."""
-    print(f"simple-mcp-server v{VERSION}")
+    print(f"robotmcp-server v{VERSION}")
     print("Copyright (c) 2025 Contoro. All rights reserved.")
 
 
 def cmd_help():
     """Show detailed help."""
     print("""
-Simple MCP Server - Local MCP server with OAuth
+RobotMCP Server - Local MCP server with OAuth
 Copyright (c) 2025 Contoro. All rights reserved.
 
 USAGE:
-    simple-mcp-server <command>
+    robotmcp-server <command>
 
 COMMANDS:
     start       Start the MCP server in background
@@ -1119,25 +1117,25 @@ COMMANDS:
 
 EXAMPLES:
     # Start server (runs in background)
-    simple-mcp-server start
+    robotmcp-server start
 
     # Check server status
-    simple-mcp-server status
+    robotmcp-server status
 
     # Stop the server
-    simple-mcp-server stop
+    robotmcp-server stop
 
     # View logs
-    tail -f ~/.simple-mcp-server/server.log
+    tail -f ~/.robotmcp-server/server.log
 
 QUICK START:
-    1. Run 'simple-mcp-server start' (or 'login' to login without starting)
+    1. Run 'robotmcp-server start' (or 'login' to login without starting)
     2. Log in via browser (opens automatically)
     3. Select existing server or enter a new robot name (e.g., 'myrobot')
     4. Server starts in background at https://myrobot.robotmcp.ai
     5. Copy the MCP URL to ChatGPT/Claude (use SSE URL if MCP doesn't work)
 
-For more information, see: https://github.com/mokcontoro/simple_mcp_server
+For more information, see: https://github.com/robotmcp/robotmcp_server
 """)
 
 
@@ -1154,8 +1152,8 @@ def main():
         return
 
     parser = argparse.ArgumentParser(
-        prog="simple-mcp-server",
-        description="Simple MCP Server - Local MCP server with OAuth",
+        prog="robotmcp-server",
+        description="RobotMCP Server - Local MCP server with OAuth",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Commands:
@@ -1169,9 +1167,9 @@ Commands:
   help      Show detailed help
 
 Examples:
-  simple-mcp-server start
-  simple-mcp-server status
-  simple-mcp-server stop
+  robotmcp-server start
+  robotmcp-server status
+  robotmcp-server stop
 """,
     )
 

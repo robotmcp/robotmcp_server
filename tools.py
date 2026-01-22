@@ -1,4 +1,4 @@
-"""MCP Tools for simple-mcp-server.
+"""MCP Tools for robotmcp-server.
 
 This module defines the MCP tools (echo, ping) that are exposed to clients.
 For ros-mcp-server merge, replace these with ROS-specific tools.
@@ -11,7 +11,7 @@ from fastmcp import FastMCP
 logger = logging.getLogger(__name__)
 
 # Create the FastMCP server instance
-mcp = FastMCP("simple-mcp-server")
+mcp = FastMCP("robotmcp-server")
 
 
 @mcp.tool()
