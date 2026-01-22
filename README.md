@@ -1,6 +1,6 @@
 # Simple MCP Server
 
-A Model Context Protocol (MCP) server with OAuth 2.1 authentication, Supabase user management, and Cloudflare tunnel support. Works with ChatGPT and Claude.ai.
+A modular Model Context Protocol (MCP) server with automatic submodule integration, OAuth 2.1 authentication, Supabase user management, and Cloudflare tunnel support. Works with ChatGPT and Claude.ai.
 
 ## Quick Start
 
@@ -16,6 +16,8 @@ See [docs/install.md](docs/install.md) for manual installation and troubleshooti
 
 ## Features
 
+- **Submodule Auto-Discovery**: Automatically finds and registers MCP tools from git submodules
+- **Auto-Install Dependencies**: Submodule dependencies are installed automatically at startup
 - **Streamable HTTP Transport**: Modern MCP transport at `/mcp`
 - **OAuth 2.1**: Full flow with PKCE and dynamic client registration
 - **Cloudflare Tunnel**: Secure access via `{name}.robotmcp.ai`
@@ -27,19 +29,22 @@ See [docs/install.md](docs/install.md) for manual installation and troubleshooti
 ## Project Structure
 
 ```
-simple_mcp_server/
-├── main.py              # FastAPI app entry point
-├── tools.py             # MCP tools (echo, ping) - replace for custom tools
-├── cli.py               # CLI daemon management
-├── config.py            # Config management (~/.simple-mcp-server/)
-├── setup.py             # Browser-based login flow
-├── sse.py               # Legacy SSE endpoints
-└── oauth/               # OAuth module (optional)
-    ├── endpoints.py     # OAuth routes
-    ├── middleware.py    # Token validation
-    ├── jwt_utils.py     # JWT token generation/validation
-    ├── stores.py        # Session stores (auth codes, pending requests)
-    └── templates.py     # HTML templates
+robotmcp_server/
+├── main.py                    # FastAPI app entry point
+├── submodule_integration.py   # Auto-discover & register submodule tools
+├── submodule_deps.py          # Auto-install submodule dependencies
+├── tools.py                   # Built-in MCP tools (echo, ping)
+├── cli.py                     # CLI daemon management
+├── config.py                  # Config management (~/.simple-mcp-server/)
+├── setup.py                   # Browser-based login flow
+├── sse.py                     # Legacy SSE endpoints
+├── oauth/                     # OAuth module (optional)
+│   ├── endpoints.py           # OAuth routes
+│   ├── middleware.py          # Token validation
+│   ├── jwt_utils.py           # JWT token generation/validation
+│   ├── stores.py              # Session stores
+│   └── templates.py           # HTML templates
+└── ros-mcp-server/            # Example submodule (ROS integration)
 ```
 
 **Cloud Service:** CLI login and tunnel creation are handled by [robotmcp-cloud](https://github.com/robotmcp/robotmcp_cloud) at `https://app.robotmcp.ai`.
@@ -120,9 +125,59 @@ https://{your-name}.robotmcp.ai/mcp
 
 See [docs/workflow.md](docs/workflow.md) for connection flow diagrams.
 
-## Customization
+## Adding MCP Submodules
 
-To add custom MCP tools, replace `tools.py`:
+The server automatically discovers and integrates MCP tools from git submodules. This allows you to add external MCP tool packages without modifying the main server code.
+
+### Adding a Submodule
+
+```bash
+# Add a submodule (tools are auto-discovered on next startup)
+git submodule add https://github.com/example/my-mcp-tools.git
+
+# Initialize submodule after cloning
+git submodule update --init --recursive
+```
+
+When the server starts, it will:
+1. Parse `.gitmodules` to find all submodules
+2. Check each submodule for a `pyproject.toml`
+3. Auto-install missing dependencies via `pip install -e`
+4. Register tools, resources, and prompts with the MCP server
+
+### Submodule Requirements
+
+Your MCP submodule must have a `pyproject.toml` with a package name. The server discovers tools using one of these methods (in order of precedence):
+
+1. **Custom register function** - Define in `pyproject.toml`:
+   ```toml
+   [tool.mcp.integration]
+   register_function = "my_package.integration:register"
+   ```
+
+2. **Integration module** - Create `<package>/integration.py` with:
+   ```python
+   def register(mcp, **config):
+       # Register your tools, resources, prompts
+       @mcp.tool()
+       def my_tool(param: str) -> str:
+           return f"Result: {param}"
+   ```
+
+3. **Convention-based** - The server looks for:
+   - `<package>/tools/__init__.py` with `register_all_tools(mcp, ...)`
+   - `<package>/resources/__init__.py` with `register_all_resources(mcp, ...)`
+   - `<package>/prompts/__init__.py` with `register_all_prompts(mcp, ...)`
+
+### Configuration
+
+Each submodule is responsible for its own configuration via environment variables. The main server does not pass configuration to submodules—this keeps the server completely submodule-agnostic.
+
+Example: The `ros-mcp-server` submodule reads `ROSBRIDGE_IP` and `ROSBRIDGE_PORT` from its own environment.
+
+## Custom Tools (without submodules)
+
+To add custom MCP tools directly, edit `tools.py`:
 
 ```python
 from fastmcp import FastMCP
@@ -133,8 +188,6 @@ def my_tool(param: str) -> str:
     return f"Result: {param}"
 ```
 
-For ros-mcp-server merge: replace `tools.py` and set `ENABLE_OAUTH=false`.
-
 ## Documentation
 
 - [Installation Guide](docs/install.md) - Setup, troubleshooting, CLI reference
@@ -143,6 +196,7 @@ For ros-mcp-server merge: replace `tools.py` and set `ENABLE_OAUTH=false`.
 
 ## Version History
 
+- **v1.18.0**: Submodule auto-discovery - automatically find and register MCP tools from git submodules. Submodule dependencies are auto-installed at startup. Decoupled submodule configuration (submodules manage their own config via environment variables).
 - **v1.17.0**: Enhanced `verify` command with comprehensive diagnostics (server, tunnel, DNS, connectivity)
 - **v1.16.2**: Use importlib.metadata for version (single source of truth from pyproject.toml)
 - **v1.16.1**: Fix SSE endpoint to support shared member access (consistent with /mcp)
