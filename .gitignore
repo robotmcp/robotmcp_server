@@ -16,6 +16,7 @@ env/
 # IDE
 .idea/
 .vscode/
+.cursor/
 *.swp
 *.swo
 
@@ -31,3 +32,6 @@ hello_world/
 dist/
 build/
 *.egg-info/
+
+# Package manager
+uv.lock

@@ -2,7 +2,7 @@
 
 This server runs on the user's machine (local computer or robot).
 It handles:
-- MCP tools (echo, ping) via tools.py
+- MCP tools via submodule integration
 - MCP protocol endpoints via Streamable HTTP (/mcp)
 - OAuth flow for MCP clients (optional, via oauth/)
 - Legacy SSE endpoints for backward compatibility (/sse, /message)
@@ -77,10 +77,17 @@ logger.info(f"[STARTUP] Config loaded - valid: {local_config.is_valid()}, email:
 SERVER_URL = local_config.tunnel_url or os.getenv("SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app")
 logger.info(f"[STARTUP] SERVER_URL: {SERVER_URL}")
 logger.info(f"[STARTUP] OAuth enabled: {ENABLE_OAUTH}")
+logger.info("[STARTUP] Submodule auto-discovery enabled")
 
 # ============== FastMCP Server ==============
-# MCP tools imported from tools.py - easily replaceable for ros-mcp-server merge
-from tools import mcp
+from fastmcp import FastMCP
+from submodule_integration import register_all_submodules
+
+# Create MCP instance
+mcp = FastMCP("simple-mcp-server")
+
+# Auto-discover and register tools/resources/prompts from all git submodules
+register_all_submodules(mcp)
 
 # ============== OAuth Authentication Middleware for MCP ==============
 from oauth.middleware import MCPOAuthMiddleware
@@ -103,7 +110,7 @@ mcp_http_app = mcp.http_app(
 # Pass MCP app's lifespan to FastAPI for proper initialization
 app = FastAPI(
     title="Simple MCP Server",
-    description="A minimal MCP server with echo functionality and OAuth 2.1",
+    description="MCP server with ROS integration and OAuth 2.1",
     version=VERSION,
     lifespan=mcp_http_app.lifespan,  # Required for FastMCP task group initialization
 )
@@ -159,7 +166,7 @@ async def root():
             "recommended": "/mcp",
             "fallback": "/sse (use if /mcp doesn't work)",
         },
-        "tools": ["echo", "ping"],
+        "tools": "Auto-discovered from submodules",
         "oauth_enabled": ENABLE_OAUTH
     }
     if ENABLE_OAUTH:

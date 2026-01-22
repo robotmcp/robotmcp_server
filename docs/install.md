@@ -13,7 +13,7 @@ This guide covers installing and using simple-mcp-server (v1.8.0) on your local 
 ### Install via pipx
 
 ```bash
-pipx install git+https://github.com/mokcontoro/simple_mcp_server.git
+pipx install git+https://github.com/stex2005/robotmcp_server.git
 ```
 
 ### Run
