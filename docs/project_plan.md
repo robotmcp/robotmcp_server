@@ -1,4 +1,4 @@
-# Project Plan: simple-mcp-server
+# Project Plan: robotmcp-server
 
 **Copyright (c) 2025 Contoro. All rights reserved.**
 
@@ -34,11 +34,11 @@
 ## Module Structure
 
 ```
-simple_mcp_server/
+robotmcp_server/
 ├── main.py              # FastAPI app entry
 ├── tools.py             # MCP tools (echo, ping) - replace for custom tools
 ├── cli.py               # CLI daemon management
-├── config.py            # Config management (~/.simple-mcp-server/)
+├── config.py            # Config management (~/.robotmcp-server/)
 ├── setup.py             # Browser login flow (uses app.robotmcp.ai)
 ├── sse.py               # Legacy SSE endpoints
 └── oauth/               # OAuth module (optional)

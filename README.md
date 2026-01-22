@@ -1,4 +1,4 @@
-# Simple MCP Server
+# RobotMCP Server
 
 A modular Model Context Protocol (MCP) server with automatic submodule integration, OAuth 2.1 authentication, Supabase user management, and Cloudflare tunnel support. Works with ChatGPT and Claude.ai.
 
@@ -6,10 +6,10 @@ A modular Model Context Protocol (MCP) server with automatic submodule integrati
 
 ```bash
 # Install via pipx
-pipx install git+https://github.com/stex2005/robotmcp_server.git
+pipx install git+https://github.com/robotmcp/robotmcp_server.git
 
 # Run (opens browser for first-time setup)
-simple-mcp-server
+robotmcp-server
 ```
 
 See [docs/install.md](docs/install.md) for manual installation and troubleshooting.
@@ -35,7 +35,7 @@ robotmcp_server/
 ├── submodule_deps.py          # Auto-install submodule dependencies
 ├── tools.py                   # Built-in MCP tools (echo, ping)
 ├── cli.py                     # CLI daemon management
-├── config.py                  # Config management (~/.simple-mcp-server/)
+├── config.py                  # Config management (~/.robotmcp-server/)
 ├── setup.py                   # Browser-based login flow
 ├── sse.py                     # Legacy SSE endpoints
 ├── oauth/                     # OAuth module (optional)
@@ -55,18 +55,18 @@ See [docs/project_plan.md](docs/project_plan.md) for architecture details.
 
 | Command | Description |
 |---------|-------------|
-| `simple-mcp-server` | Start server in background |
-| `simple-mcp-server stop` | Stop server and tunnel |
-| `simple-mcp-server status` | Show current status |
-| `simple-mcp-server verify` | Comprehensive verification (server, tunnel, DNS, connectivity) |
-| `simple-mcp-server logout` | Clear credentials and stop |
+| `robotmcp-server` | Start server in background |
+| `robotmcp-server stop` | Stop server and tunnel |
+| `robotmcp-server status` | Show current status |
+| `robotmcp-server verify` | Comprehensive verification (server, tunnel, DNS, connectivity) |
+| `robotmcp-server logout` | Clear credentials and stop |
 
 ### Verification Command
 
 The `verify` command performs comprehensive diagnostics:
 
 ```bash
-simple-mcp-server verify
+robotmcp-server verify
 ```
 
 **Checks performed:**
@@ -202,7 +202,7 @@ def my_tool(param: str) -> str:
 - **v1.16.1**: Fix SSE endpoint to support shared member access (consistent with /mcp)
 - **v1.16.0**: Display version in CLI status output
 - **v1.15.0**: Shared member access - users added via dashboard can now connect to shared MCP servers
-- **v1.14.0**: Change default port from 8000 to 8766 (**BREAKING**: existing tunnels must be recreated with `simple-mcp-server logout && simple-mcp-server`)
+- **v1.14.0**: Change default port from 8000 to 8766 (**BREAKING**: existing tunnels must be recreated with `robotmcp-server logout && robotmcp-server`)
 - **v1.13.0**: JWT tokens for stateless OAuth (tokens survive server restarts), endpoint compatibility docs
 - **v1.12.0**: Supabase centralized logging (replaces CloudWatch for security)
 - **v1.11.0**: AWS CloudWatch logging integration with JSON structured logs

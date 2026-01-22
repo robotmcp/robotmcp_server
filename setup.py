@@ -1,4 +1,4 @@
-"""Setup flow for simple-mcp-server (browser-based login)."""
+"""Setup flow for robotmcp-server (browser-based login)."""
 
 import os
 import re
@@ -396,7 +396,7 @@ def run_login_flow() -> bool:
             refresh_token=result.get("refresh_token"),
         )
         print(f"\n[OK] Logged in as: {result['email']}")
-        print("  Config saved to: ~/.simple-mcp-server/config.json")
+        print("  Config saved to: ~/.robotmcp-server/config.json")
 
         # Fetch existing servers
         print("\nChecking for existing servers...")
@@ -501,7 +501,7 @@ def run_login_flow() -> bool:
                         continue
                 else:
                     # Other error - don't retry
-                    print("  You can retry by running: simple-mcp-server")
+                    print("  You can retry by running: robotmcp-server")
                     return False
 
     print("\n[X] Login timed out. Please try again.")

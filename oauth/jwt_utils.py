@@ -21,13 +21,13 @@ REFRESH_TOKEN_EXPIRE_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 # Secret key storage
 _jwt_secret: Optional[str] = None
-SECRET_FILE = Path.home() / ".simple-mcp-server" / "jwt_secret"
+SECRET_FILE = Path.home() / ".robotmcp-server" / "jwt_secret"
 
 
 def _get_or_create_secret() -> str:
     """Get JWT secret from file, or create one if it doesn't exist.
 
-    The secret is stored in ~/.simple-mcp-server/jwt_secret
+    The secret is stored in ~/.robotmcp-server/jwt_secret
     This ensures tokens remain valid across server restarts.
     """
     global _jwt_secret
