@@ -1,10 +1,27 @@
 # Project Guidelines
 
-## Version Control
+## Version Control (Gitflow)
+
+### Branch Structure
+
+| Branch | Purpose | Merges to |
+|--------|---------|-----------|
+| `main` | Production releases (tagged) | - |
+| `develop` | Integration branch | `main` |
+| `feature/*` | New features | `develop` |
+| `release/*` | Release preparation | `main` + `develop` |
+| `hotfix/*` | Urgent production fixes | `main` + `develop` |
+
+### PR Rules
+- **Default PR base**: `develop`
+- Feature PRs: `feature/*` → `develop`
+- Release PRs: `release/*` → `main` (then back-merge to `develop`)
+- Hotfix PRs: `hotfix/*` → `main` (then back-merge to `develop`)
 
 ### Commit Rules
 1. Keep commits atomic (one change per commit)
-2. Test before pushing
+2. Use conventional commits: `feat:`, `fix:`, `refactor:`, `docs:`, `chore:`, `ci:`, `style:`
+3. Test before pushing
 
 ### Gitflow Branching Model
 
@@ -82,9 +99,10 @@ git branch -d hotfix/1.0.1
 - PATCH version changes (bug fixes) → no tag required
 
 **Workflow:**
-1. Merge your feature/release branch into `main`
-2. Create the tag on `main` pointing to the merge commit
-3. Push the tag to remote
+1. Create `release/vX.Y.Z` from `develop`
+2. Update version in `pyproject.toml`
+3. PR to `main`, merge, tag as `vX.Y.Z`
+4. Back-merge `main` to `develop`
 
 ```bash
 # After merging to main
