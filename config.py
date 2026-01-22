@@ -1,4 +1,5 @@
 """Config management for simple-mcp-server."""
+
 import json
 import os
 from pathlib import Path
@@ -65,7 +66,9 @@ def load_config() -> Config:
         return Config()
 
 
-def save_config(user_id: str, email: str, access_token: str, refresh_token: str = None) -> None:
+def save_config(
+    user_id: str, email: str, access_token: str, refresh_token: str = None
+) -> None:
     """Save config to file."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 

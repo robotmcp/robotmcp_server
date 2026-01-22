@@ -11,6 +11,7 @@ It handles:
 MCP clients (ChatGPT, Claude, etc.) connect directly to this server
 via Cloudflare tunnel. Railway is NOT involved in MCP traffic.
 """
+
 import os
 import logging
 from importlib.metadata import version as get_version
@@ -62,7 +63,8 @@ if SUPABASE_URL and SUPABASE_ANON_KEY:
 local_config = load_config()
 
 # Initialize logging with Supabase support (centralized log collection)
-from logging_config import setup_logging
+from logging_config import setup_logging  # noqa: E402
+
 setup_logging(
     robot_name=local_config.robot_name,
     user_id=local_config.user_id,
@@ -70,18 +72,22 @@ setup_logging(
 )
 logger = logging.getLogger(__name__)
 
-logger.info(f"[STARTUP] Config loaded - valid: {local_config.is_valid()}, email: {local_config.email}")
+logger.info(
+    f"[STARTUP] Config loaded - valid: {local_config.is_valid()}, email: {local_config.email}"
+)
 
 # SERVER_URL: Use tunnel URL if available (for local MCP server), otherwise fallback to env/default
 # This is critical for OAuth - MCP clients need to authenticate on THIS server, not Railway
-SERVER_URL = local_config.tunnel_url or os.getenv("SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app")
+SERVER_URL = local_config.tunnel_url or os.getenv(
+    "SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app"
+)
 logger.info(f"[STARTUP] SERVER_URL: {SERVER_URL}")
 logger.info(f"[STARTUP] OAuth enabled: {ENABLE_OAUTH}")
 logger.info("[STARTUP] Submodule auto-discovery enabled")
 
 # ============== FastMCP Server ==============
-from fastmcp import FastMCP
-from submodule_integration import register_all_submodules
+from fastmcp import FastMCP  # noqa: E402
+from submodule_integration import register_all_submodules  # noqa: E402
 
 # Create MCP instance
 mcp = FastMCP("simple-mcp-server")
@@ -90,7 +96,7 @@ mcp = FastMCP("simple-mcp-server")
 register_all_submodules(mcp)
 
 # ============== OAuth Authentication Middleware for MCP ==============
-from oauth.middleware import MCPOAuthMiddleware
+from oauth.middleware import MCPOAuthMiddleware  # noqa: E402
 
 # ============== Streamable HTTP MCP App ==============
 # Create FastMCP app with OAuth middleware BEFORE FastAPI app
@@ -103,7 +109,7 @@ from oauth.middleware import MCPOAuthMiddleware
 mcp_http_app = mcp.http_app(
     path="/",  # Route at root of mounted app
     transport="streamable-http",
-    middleware=[Middleware(MCPOAuthMiddleware)] if ENABLE_OAUTH else []
+    middleware=[Middleware(MCPOAuthMiddleware)] if ENABLE_OAUTH else [],
 )
 
 # ============== FastAPI App ==============
@@ -132,11 +138,13 @@ app.mount("/mcp", mcp_http_app)
 # OAuth endpoints (optional)
 if ENABLE_OAUTH:
     from oauth.endpoints import router as oauth_router, init_oauth_routes
+
     init_oauth_routes(SERVER_URL, supabase)
     app.include_router(oauth_router)
 
 # Legacy SSE endpoints
-from sse import router as sse_router, init_sse_routes
+from sse import router as sse_router, init_sse_routes  # noqa: E402
+
 init_sse_routes(SERVER_URL, local_config, mcp)
 app.include_router(sse_router)
 
@@ -144,6 +152,7 @@ app.include_router(sse_router)
 
 
 # ============== Server Info Endpoints ==============
+
 
 @app.get("/health")
 async def health_check():
@@ -167,12 +176,12 @@ async def root():
             "fallback": "/sse (use if /mcp doesn't work)",
         },
         "tools": "Auto-discovered from submodules",
-        "oauth_enabled": ENABLE_OAUTH
+        "oauth_enabled": ENABLE_OAUTH,
     }
     if ENABLE_OAUTH:
         response["oauth"] = {
             "protected_resource": f"{SERVER_URL}/.well-known/oauth-protected-resource",
-            "authorization_server": f"{SERVER_URL}/.well-known/oauth-authorization-server"
+            "authorization_server": f"{SERVER_URL}/.well-known/oauth-authorization-server",
         }
     return response
 
@@ -181,7 +190,8 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     logger.info(f"Starting MCP server with transport: {MCP_TRANSPORT}")
-    logger.info(f"Streamable HTTP endpoint: /mcp")
-    logger.info(f"Legacy SSE endpoint: /sse")
+    logger.info("Streamable HTTP endpoint: /mcp")
+    logger.info("Legacy SSE endpoint: /sse")
     uvicorn.run(app, host=MCP_HOST, port=MCP_PORT)
