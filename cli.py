@@ -1095,6 +1095,91 @@ def cmd_version():
     print("Copyright (c) 2025 Contoro. All rights reserved.")
 
 
+def cmd_add(repo_url: str, branch: str | None = None):
+    """Add a git submodule (MCP tool package).
+
+    Args:
+        repo_url: Git repository URL to add as submodule
+        branch: Optional branch to track
+    """
+    # Extract submodule name from repo URL
+    # e.g., https://github.com/example/mcp-tools.git -> mcp-tools
+    repo_name = repo_url.rstrip("/").rstrip(".git").split("/")[-1]
+
+    # Get the directory where this script is located (package root)
+    package_dir = Path(__file__).parent.resolve()
+
+    # Check if already exists
+    submodule_path = package_dir / repo_name
+    if submodule_path.exists():
+        print(f"[ERROR] Directory already exists: {submodule_path}")
+        print(f"  Remove it first: rm -rf {submodule_path}")
+        sys.exit(1)
+
+    # Build git submodule add command
+    cmd = ["git", "submodule", "add"]
+    if branch:
+        cmd.extend(["-b", branch])
+    cmd.append(repo_url)
+    cmd.append(repo_name)
+
+    print(f"Adding submodule: {repo_name}")
+    if branch:
+        print(f"  Branch: {branch}")
+    print(f"  URL: {repo_url}")
+    print(f"  Path: {submodule_path}")
+    print()
+
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=package_dir,
+            capture_output=True,
+            text=True,
+        )
+
+        if result.returncode != 0:
+            print("[ERROR] Failed to add submodule:")
+            if result.stderr:
+                print(f"  {result.stderr.strip()}")
+            sys.exit(1)
+
+        print("Submodule added successfully!")
+        print()
+
+        # Initialize and update the submodule
+        print("Initializing submodule...")
+        subprocess.run(
+            ["git", "submodule", "update", "--init", "--recursive", repo_name],
+            cwd=package_dir,
+            check=True,
+        )
+
+        # Check if submodule has pyproject.toml (indicates it's a Python package)
+        pyproject = submodule_path / "pyproject.toml"
+        if pyproject.exists():
+            print()
+            print(f"[INFO] Found pyproject.toml in {repo_name}")
+            print("  Dependencies will be auto-installed on next 'robotmcp-server start'")
+            print(f"  Or install manually: pip install -e {submodule_path}")
+        else:
+            print()
+            print(f"[WARNING] No pyproject.toml found in {repo_name}")
+            print("  This submodule may not be a valid MCP tool package")
+
+        print()
+        print("Next steps:")
+        print("  1. Commit the changes: git add .gitmodules && git commit -m 'Add submodule'")
+        print("  2. Restart the server: robotmcp-server restart")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Command failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+        sys.exit(1)
+
+
 def cmd_help():
     """Show detailed help."""
     print("""
@@ -1112,6 +1197,7 @@ COMMANDS:
     verify      Test tunnel connectivity and endpoints
     login       Log in to RobotMCP (browser OAuth)
     logout      Log out and clear stored credentials
+    add         Add a git submodule (MCP tool package)
     version     Show version information
     help        Show this help message
 
@@ -1124,6 +1210,9 @@ EXAMPLES:
 
     # Stop the server
     robotmcp-server stop
+
+    # Add a submodule with specific branch
+    robotmcp-server add -b main https://github.com/example/mcp-tools.git
 
     # View logs
     tail -f ~/.robotmcp-server/server.log
@@ -1156,39 +1245,12 @@ def main():
         description="RobotMCP Server - Local MCP server with OAuth",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Commands:
-  start     Start the MCP server (default)
-  stop      Stop the running server
-  restart   Restart the server
-  status    Show current status
-  verify    Test tunnel connectivity
-  logout    Log out and clear credentials
-  version   Show version
-  help      Show detailed help
-
 Examples:
   robotmcp-server start
   robotmcp-server status
   robotmcp-server stop
+  robotmcp-server add -b main https://github.com/example/mcp-tools.git
 """,
-    )
-
-    parser.add_argument(
-        "command",
-        nargs="?",
-        default="start",
-        choices=[
-            "start",
-            "stop",
-            "restart",
-            "status",
-            "login",
-            "logout",
-            "verify",
-            "version",
-            "help",
-        ],
-        help="Command to run (default: start)",
     )
 
     # Legacy flags for backward compatibility
@@ -1196,6 +1258,37 @@ Examples:
     parser.add_argument("--stop", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--logout", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--version", "-v", action="store_true", help=argparse.SUPPRESS)
+
+    # Create subparsers for commands
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Simple commands (no additional arguments)
+    subparsers.add_parser("start", help="Start the MCP server in background")
+    subparsers.add_parser("stop", help="Stop the running server and tunnel")
+    subparsers.add_parser("restart", help="Restart the server")
+    subparsers.add_parser("status", help="Show current status and configuration")
+    subparsers.add_parser("verify", help="Test tunnel connectivity and endpoints")
+    subparsers.add_parser("login", help="Log in to RobotMCP (browser OAuth)")
+    subparsers.add_parser("logout", help="Log out and clear stored credentials")
+    subparsers.add_parser("version", help="Show version information")
+    subparsers.add_parser("help", help="Show detailed help message")
+
+    # Add command with arguments
+    add_parser = subparsers.add_parser(
+        "add",
+        help="Add a git submodule (MCP tool package)",
+        description="Add a git submodule to extend the server with additional MCP tools.",
+    )
+    add_parser.add_argument(
+        "-b", "--branch",
+        metavar="BRANCH",
+        help="Branch to track (e.g., main, develop)",
+    )
+    add_parser.add_argument(
+        "repo_url",
+        metavar="REPO_URL",
+        help="Git repository URL (e.g., https://github.com/example/mcp-tools.git)",
+    )
 
     args = parser.parse_args()
 
@@ -1227,6 +1320,11 @@ Examples:
         cmd_version()
     elif args.command == "help":
         cmd_help()
+    elif args.command == "add":
+        cmd_add(args.repo_url, args.branch)
+    elif args.command is None:
+        # Default to start if no command given
+        cmd_start()
     else:
         parser.print_help()
 
