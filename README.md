@@ -127,53 +127,34 @@ See [docs/workflow.md](docs/workflow.md) for connection flow diagrams.
 
 ## Adding MCP Submodules
 
-The server automatically discovers and integrates MCP tools from git submodules. This allows you to add external MCP tool packages without modifying the main server code.
-
-### Adding a Submodule
+The server automatically discovers and integrates MCP tools from git submodules:
 
 ```bash
 # Add a submodule (tools are auto-discovered on next startup)
 git submodule add https://github.com/example/my-mcp-tools.git
-
-# Initialize submodule after cloning
 git submodule update --init --recursive
 ```
 
-When the server starts, it will:
-1. Parse `.gitmodules` to find all submodules
-2. Check each submodule for a `pyproject.toml`
-3. Auto-install missing dependencies via `pip install -e`
-4. Register tools, resources, and prompts with the MCP server
+Your submodule needs:
+1. A `pyproject.toml` with a package name
+2. An `integration.py` with a `register(mcp, **kwargs)` function
 
-### Submodule Requirements
+```python
+# my_mcp_tools/integration.py
+from fastmcp import FastMCP
 
-Your MCP submodule must have a `pyproject.toml` with a package name. The server discovers tools using one of these methods (in order of precedence):
+def register(mcp: FastMCP, **kwargs) -> None:
+    @mcp.tool()
+    def my_tool(param: str) -> str:
+        """Process a parameter."""
+        return f"Result: {param}"
+```
 
-1. **Custom register function** - Define in `pyproject.toml`:
-   ```toml
-   [tool.mcp.integration]
-   register_function = "my_package.integration:register"
-   ```
-
-2. **Integration module** - Create `<package>/integration.py` with:
-   ```python
-   def register(mcp, **config):
-       # Register your tools, resources, prompts
-       @mcp.tool()
-       def my_tool(param: str) -> str:
-           return f"Result: {param}"
-   ```
-
-3. **Convention-based** - The server looks for:
-   - `<package>/tools/__init__.py` with `register_all_tools(mcp, ...)`
-   - `<package>/resources/__init__.py` with `register_all_resources(mcp, ...)`
-   - `<package>/prompts/__init__.py` with `register_all_prompts(mcp, ...)`
-
-### Configuration
-
-Each submodule is responsible for its own configuration via environment variables. The main server does not pass configuration to submodules—this keeps the server completely submodule-agnostic.
-
-Example: The `ros-mcp-server` submodule reads `ROSBRIDGE_IP` and `ROSBRIDGE_PORT` from its own environment.
+**See [docs/submodule-integration.md](docs/submodule-integration.md) for the complete guide** including:
+- Full `integration.py` examples with configuration
+- How to organize tools, resources, and prompts
+- Environment variable configuration
+- Testing your submodule
 
 ## Custom Tools (without submodules)
 
@@ -191,6 +172,7 @@ def my_tool(param: str) -> str:
 ## Documentation
 
 - [Installation Guide](docs/install.md) - Setup, troubleshooting, CLI reference
+- [Submodule Integration](docs/submodule-integration.md) - Creating MCP submodules with integration.py
 - [Project Plan](docs/project_plan.md) - Architecture, version history
 - [Workflow](docs/workflow.md) - Flow diagrams, components
 
