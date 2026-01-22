@@ -1180,6 +1180,84 @@ def cmd_add(repo_url: str, branch: str | None = None):
         sys.exit(1)
 
 
+def cmd_remove(name: str):
+    """Remove a git submodule (MCP tool package).
+
+    Args:
+        name: Name of the submodule to remove
+    """
+    # Get the directory where this script is located (package root)
+    package_dir = Path(__file__).parent.resolve()
+    submodule_path = package_dir / name
+
+    # Check if submodule exists
+    if not submodule_path.exists():
+        print(f"[ERROR] Submodule not found: {name}")
+        print(f"  Expected path: {submodule_path}")
+        sys.exit(1)
+
+    # Check if it's actually a submodule by checking .gitmodules
+    gitmodules_path = package_dir / ".gitmodules"
+    if gitmodules_path.exists():
+        gitmodules_content = gitmodules_path.read_text()
+        if f'path = {name}' not in gitmodules_content:
+            print(f"[ERROR] '{name}' is not a registered submodule")
+            print("  Check .gitmodules for available submodules")
+            sys.exit(1)
+    else:
+        print("[ERROR] No .gitmodules file found")
+        sys.exit(1)
+
+    print(f"Removing submodule: {name}")
+    print(f"  Path: {submodule_path}")
+    print()
+
+    try:
+        # Step 1: Deinitialize the submodule
+        print("Deinitializing submodule...")
+        result = subprocess.run(
+            ["git", "submodule", "deinit", "-f", name],
+            cwd=package_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 and "not initialized" not in result.stderr:
+            print(f"  Warning: {result.stderr.strip()}")
+
+        # Step 2: Remove from git index
+        print("Removing from git index...")
+        result = subprocess.run(
+            ["git", "rm", "-f", name],
+            cwd=package_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print(f"[ERROR] Failed to remove from git index:")
+            print(f"  {result.stderr.strip()}")
+            sys.exit(1)
+
+        # Step 3: Remove the .git/modules/<name> directory
+        git_modules_path = package_dir / ".git" / "modules" / name
+        if git_modules_path.exists():
+            print("Removing cached module data...")
+            shutil.rmtree(git_modules_path)
+
+        print()
+        print(f"Submodule '{name}' removed successfully!")
+        print()
+        print("Next steps:")
+        print("  1. Commit the changes: git commit -m 'Remove submodule'")
+        print("  2. Restart the server: robotmcp-server restart")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Command failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+        sys.exit(1)
+
+
 def cmd_help():
     """Show detailed help."""
     print("""
@@ -1197,9 +1275,17 @@ COMMANDS:
     verify      Test tunnel connectivity and endpoints
     login       Log in to RobotMCP (browser OAuth)
     logout      Log out and clear stored credentials
-    add         Add a git submodule (MCP tool package)
+    add         Add an MCP server module (git submodule)
+    remove      Remove an MCP server module (git submodule)
     version     Show version information
     help        Show this help message
+
+MCP SERVER MODULES:
+    MCP server modules are git repositories containing MCP tools that extend
+    robotmcp-server functionality. They are added as git submodules.
+
+    Format: https://github.com/<owner>/<mcp-server-repo>
+    Example: https://github.com/robotmcp/ros-mcp-server
 
 EXAMPLES:
     # Start server (runs in background)
@@ -1211,8 +1297,14 @@ EXAMPLES:
     # Stop the server
     robotmcp-server stop
 
-    # Add a submodule with specific branch
-    robotmcp-server add -b main https://github.com/example/mcp-tools.git
+    # Add an MCP server module
+    robotmcp-server add https://github.com/robotmcp/ros-mcp-server
+
+    # Add an MCP server module tracking a specific branch
+    robotmcp-server add -b main https://github.com/robotmcp/ros-mcp-server
+
+    # Remove an MCP server module
+    robotmcp-server remove ros-mcp-server
 
     # View logs
     tail -f ~/.robotmcp-server/server.log
@@ -1249,7 +1341,9 @@ Examples:
   robotmcp-server start
   robotmcp-server status
   robotmcp-server stop
-  robotmcp-server add -b main https://github.com/example/mcp-tools.git
+  robotmcp-server add https://github.com/robotmcp/ros-mcp-server
+  robotmcp-server add -b main https://github.com/robotmcp/ros-mcp-server
+  robotmcp-server remove ros-mcp-server
 """,
     )
 
@@ -1276,8 +1370,8 @@ Examples:
     # Add command with arguments
     add_parser = subparsers.add_parser(
         "add",
-        help="Add a git submodule (MCP tool package)",
-        description="Add a git submodule to extend the server with additional MCP tools.",
+        help="Add an MCP server module (git submodule)",
+        description="Add an MCP server module to extend functionality with additional tools.",
     )
     add_parser.add_argument(
         "-b", "--branch",
@@ -1286,8 +1380,20 @@ Examples:
     )
     add_parser.add_argument(
         "repo_url",
-        metavar="REPO_URL",
-        help="Git repository URL (e.g., https://github.com/example/mcp-tools.git)",
+        metavar="MCP_SERVER_MODULE",
+        help="GitHub URL (e.g., https://github.com/robotmcp/ros-mcp-server)",
+    )
+
+    # Remove command with arguments
+    remove_parser = subparsers.add_parser(
+        "remove",
+        help="Remove an MCP server module (git submodule)",
+        description="Remove an MCP server module from the server.",
+    )
+    remove_parser.add_argument(
+        "name",
+        metavar="MODULE_NAME",
+        help="Name of the module to remove (e.g., ros-mcp-server)",
     )
 
     args = parser.parse_args()
@@ -1322,6 +1428,8 @@ Examples:
         cmd_help()
     elif args.command == "add":
         cmd_add(args.repo_url, args.branch)
+    elif args.command == "remove":
+        cmd_remove(args.name)
     elif args.command is None:
         # Default to start if no command given
         cmd_start()

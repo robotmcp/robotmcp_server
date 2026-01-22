@@ -1,3 +1,0 @@
-[submodule "ros-mcp-server"]
-	path = ros-mcp-server
-	url = https://github.com/robotmcp/ros-mcp-server.git
