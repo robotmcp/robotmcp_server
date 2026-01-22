@@ -53,15 +53,14 @@ def unauthorized_response(error_description: str) -> JSONResponse:
         status_code=401,
         headers={
             "WWW-Authenticate": f'Bearer resource_metadata="{_server_url}/.well-known/oauth-protected-resource"'
-        }
+        },
     )
 
 
 def forbidden_response(error_description: str) -> JSONResponse:
     """Return 403 Forbidden response for unauthorized access."""
     return JSONResponse(
-        {"error": "forbidden", "error_description": error_description},
-        status_code=403
+        {"error": "forbidden", "error_description": error_description}, status_code=403
     )
 
 
@@ -83,13 +82,14 @@ async def check_authorization(token_data: dict) -> bool:
     robot_name = _local_config.robot_name if _local_config else None
     if robot_name:
         if await check_shared_access(robot_name, connecting_user_id):
-            logger.info(f"[SSE] Request authorized (shared member): {token_data.get('email')}")
+            logger.info(
+                f"[SSE] Request authorized (shared member): {token_data.get('email')}"
+            )
             return True
 
     logger.warning(f"[SSE] Access denied: user {connecting_user_id} is not authorized")
     raise HTTPException(
-        status_code=403,
-        detail="Access denied: not authorized for this server"
+        status_code=403, detail="Access denied: not authorized for this server"
     )
 
 

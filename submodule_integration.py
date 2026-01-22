@@ -15,6 +15,7 @@ Or follow conventions:
     - <package>/resources/__init__.py with register_all_resources(mcp, ...)
     - <package>/prompts/__init__.py with register_all_prompts(mcp, ...)
 """
+
 import importlib
 import inspect
 import logging
@@ -118,7 +119,9 @@ def _call_register_function(
         func(*args, **kwargs)
         return True
     except Exception as e:
-        logger.error(f"[INTEGRATION] Failed to call {func.__name__} for {submodule_name}: {e}")
+        logger.error(
+            f"[INTEGRATION] Failed to call {func.__name__} for {submodule_name}: {e}"
+        )
         return False
 
 
@@ -144,7 +147,9 @@ def _discover_and_register_submodule(
     if "register_function" in integration_config:
         func = _get_function_from_path(integration_config["register_function"])
         if func:
-            logger.info(f"[INTEGRATION] Using custom register function for {submodule_name}")
+            logger.info(
+                f"[INTEGRATION] Using custom register function for {submodule_name}"
+            )
             if _call_register_function(func, mcp, config, submodule_name):
                 result["tools"] = result["resources"] = result["prompts"] = True
             return result
@@ -153,7 +158,9 @@ def _discover_and_register_submodule(
     integration_module = _import_module_safe(f"{package_name}.integration")
     if integration_module and hasattr(integration_module, "register"):
         logger.info(f"[INTEGRATION] Found {package_name}.integration.register()")
-        if _call_register_function(integration_module.register, mcp, config, submodule_name):
+        if _call_register_function(
+            integration_module.register, mcp, config, submodule_name
+        ):
             result["tools"] = result["resources"] = result["prompts"] = True
         return result
 
@@ -169,7 +176,9 @@ def _discover_and_register_submodule(
     # Look for register_all_resources in resources/__init__.py
     resources_module = _import_module_safe(f"{package_name}.resources")
     if resources_module and hasattr(resources_module, "register_all_resources"):
-        logger.info(f"[INTEGRATION] Found {package_name}.resources.register_all_resources()")
+        logger.info(
+            f"[INTEGRATION] Found {package_name}.resources.register_all_resources()"
+        )
         result["resources"] = _call_register_function(
             resources_module.register_all_resources, mcp, config, submodule_name
         )
@@ -177,7 +186,9 @@ def _discover_and_register_submodule(
     # Look for register_all_prompts in prompts/__init__.py
     prompts_module = _import_module_safe(f"{package_name}.prompts")
     if prompts_module and hasattr(prompts_module, "register_all_prompts"):
-        logger.info(f"[INTEGRATION] Found {package_name}.prompts.register_all_prompts()")
+        logger.info(
+            f"[INTEGRATION] Found {package_name}.prompts.register_all_prompts()"
+        )
         result["prompts"] = _call_register_function(
             prompts_module.register_all_prompts, mcp, config, submodule_name
         )
@@ -231,7 +242,9 @@ def discover_and_register_all(
 
         # Check if it has pyproject.toml
         if not pyproject_path.exists():
-            logger.debug(f"[INTEGRATION] Submodule {submodule['name']} has no pyproject.toml")
+            logger.debug(
+                f"[INTEGRATION] Submodule {submodule['name']} has no pyproject.toml"
+            )
             continue
 
         # Load pyproject.toml
@@ -244,7 +257,9 @@ def discover_and_register_all(
         # Get package name
         package_name = get_package_name_from_pyproject(pyproject_path)
         if not package_name:
-            logger.warning(f"[INTEGRATION] Could not determine package name for {submodule['name']}")
+            logger.warning(
+                f"[INTEGRATION] Could not determine package name for {submodule['name']}"
+            )
             continue
 
         # Normalize package name (replace - with _)
@@ -261,7 +276,9 @@ def discover_and_register_all(
         # Copy config for this submodule
         submodule_config = config.copy()
 
-        logger.info(f"[INTEGRATION] Registering {submodule['name']} (package: {package_name})")
+        logger.info(
+            f"[INTEGRATION] Registering {submodule['name']} (package: {package_name})"
+        )
 
         # Discover and register
         results[submodule["name"]] = _discover_and_register_submodule(
@@ -273,10 +290,10 @@ def discover_and_register_all(
         )
 
     # Log summary
-    registered_count = sum(
-        1 for r in results.values() if any(r.values())
+    registered_count = sum(1 for r in results.values() if any(r.values()))
+    logger.info(
+        f"[INTEGRATION] Registered {registered_count}/{len(results)} submodule(s)"
     )
-    logger.info(f"[INTEGRATION] Registered {registered_count}/{len(results)} submodule(s)")
 
     return results
 

@@ -5,6 +5,7 @@ Copyright (c) 2025 Contoro. All rights reserved.
 This runs the LOCAL MCP server on the user's machine.
 On first run, it opens a browser for login via Railway.
 """
+
 import argparse
 import os
 import platform
@@ -45,7 +46,9 @@ SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
 # Cloudflared auto-install settings
 CLOUDFLARED_INSTALL_DIR = Path.home() / ".local" / "bin"
-CLOUDFLARED_RELEASES_URL = "https://github.com/cloudflare/cloudflared/releases/latest/download"
+CLOUDFLARED_RELEASES_URL = (
+    "https://github.com/cloudflare/cloudflared/releases/latest/download"
+)
 
 # Daemon settings
 CONFIG_DIR = Path.home() / ".simple-mcp-server"
@@ -54,6 +57,7 @@ LOG_FILE = CONFIG_DIR / "server.log"
 
 
 # ============== Helper Functions ==============
+
 
 def fetch_user_info(access_token: str) -> dict:
     """Fetch user info from Supabase using access token."""
@@ -68,8 +72,12 @@ def fetch_user_info(access_token: str) -> dict:
             return {
                 "user_id": user.id,
                 "email": user.email,
-                "name": user.user_metadata.get("name", "") if user.user_metadata else "",
-                "organization": user.user_metadata.get("organization", "") if user.user_metadata else "",
+                "name": user.user_metadata.get("name", "")
+                if user.user_metadata
+                else "",
+                "organization": user.user_metadata.get("organization", "")
+                if user.user_metadata
+                else "",
             }
     except Exception:
         pass
@@ -87,9 +95,7 @@ def check_cloudflared_service() -> bool:
         return False
     try:
         result = subprocess.run(
-            ["sc", "query", "cloudflared"],
-            capture_output=True,
-            text=True
+            ["sc", "query", "cloudflared"], capture_output=True, text=True
         )
         return "RUNNING" in result.stdout
     except Exception:
@@ -103,7 +109,7 @@ def check_cloudflared_process() -> bool:
             result = subprocess.run(
                 ["tasklist", "/FI", "IMAGENAME eq cloudflared.exe"],
                 capture_output=True,
-                text=True
+                text=True,
             )
             return "cloudflared.exe" in result.stdout
         except Exception:
@@ -112,9 +118,7 @@ def check_cloudflared_process() -> bool:
         # Linux/macOS: use pgrep
         try:
             result = subprocess.run(
-                ["pgrep", "-x", "cloudflared"],
-                capture_output=True,
-                text=True
+                ["pgrep", "-x", "cloudflared"], capture_output=True, text=True
             )
             return result.returncode == 0
         except Exception:
@@ -138,12 +142,8 @@ def is_server_running() -> bool:
     """Check if MCP server is already running on port 8766."""
     if platform.system() == "Windows":
         try:
-            result = subprocess.run(
-                ["netstat", "-ano"],
-                capture_output=True,
-                text=True
-            )
-            for line in result.stdout.split('\n'):
+            result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True)
+            for line in result.stdout.split("\n"):
                 if ":8766" in line and "LISTENING" in line:
                     return True
         except Exception:
@@ -151,9 +151,7 @@ def is_server_running() -> bool:
     else:
         try:
             result = subprocess.run(
-                ["lsof", "-ti", ":8766"],
-                capture_output=True,
-                text=True
+                ["lsof", "-ti", ":8766"], capture_output=True, text=True
             )
             return bool(result.stdout.strip())
         except Exception:
@@ -167,7 +165,7 @@ def run_cloudflared_tunnel(tunnel_token: str) -> subprocess.Popen:
     return subprocess.Popen(
         [cloudflared_cmd, "tunnel", "run", "--token", tunnel_token],
         stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE
+        stderr=subprocess.PIPE,
     )
 
 
@@ -179,7 +177,7 @@ def kill_cloudflared_processes():
             result = subprocess.run(
                 ["taskkill", "/F", "/IM", "cloudflared.exe"],
                 capture_output=True,
-                text=True
+                text=True,
             )
             if "SUCCESS" in result.stdout:
                 killed = True
@@ -187,7 +185,9 @@ def kill_cloudflared_processes():
             pass
     else:
         try:
-            result = subprocess.run(["pkill", "-f", "cloudflared tunnel run"], capture_output=True)
+            result = subprocess.run(
+                ["pkill", "-f", "cloudflared tunnel run"], capture_output=True
+            )
             killed = result.returncode == 0
         except Exception:
             pass
@@ -199,20 +199,15 @@ def kill_processes_on_port(port: int) -> bool:
     killed = False
     if platform.system() == "Windows":
         try:
-            result = subprocess.run(
-                ["netstat", "-ano"],
-                capture_output=True,
-                text=True
-            )
-            for line in result.stdout.split('\n'):
+            result = subprocess.run(["netstat", "-ano"], capture_output=True, text=True)
+            for line in result.stdout.split("\n"):
                 if f":{port}" in line and "LISTENING" in line:
                     parts = line.split()
                     if len(parts) >= 5:
                         pid = parts[-1]
                         try:
                             subprocess.run(
-                                ["taskkill", "/F", "/PID", pid],
-                                capture_output=True
+                                ["taskkill", "/F", "/PID", pid], capture_output=True
                             )
                             killed = True
                         except Exception:
@@ -222,11 +217,9 @@ def kill_processes_on_port(port: int) -> bool:
     else:
         try:
             result = subprocess.run(
-                ["lsof", "-ti", f":{port}"],
-                capture_output=True,
-                text=True
+                ["lsof", "-ti", f":{port}"], capture_output=True, text=True
             )
-            for pid in result.stdout.strip().split('\n'):
+            for pid in result.stdout.strip().split("\n"):
                 if pid:
                     subprocess.run(["kill", "-9", pid], capture_output=True)
                     killed = True
@@ -275,7 +268,7 @@ def install_cloudflared() -> bool:
         response = requests.get(url, stream=True, timeout=60)
         response.raise_for_status()
 
-        with open(dest, 'wb') as f:
+        with open(dest, "wb") as f:
             for chunk in response.iter_content(chunk_size=8192):
                 f.write(chunk)
 
@@ -289,7 +282,7 @@ def install_cloudflared() -> bool:
             print("\n  ~/.local/bin is not in your PATH.")
             try:
                 response = input("  Add to ~/.bashrc? (y/n): ").strip().lower()
-                if response == 'y':
+                if response == "y":
                     if add_to_bashrc():
                         print("  Added to ~/.bashrc")
                         print("  Run: source ~/.bashrc  (or restart terminal)")
@@ -315,17 +308,19 @@ def is_local_bin_in_path() -> bool:
 def add_to_bashrc() -> bool:
     """Add ~/.local/bin to PATH in ~/.bashrc."""
     bashrc = Path.home() / ".bashrc"
-    export_line = '\n# Added by simple-mcp-server\nexport PATH="$HOME/.local/bin:$PATH"\n'
+    export_line = (
+        '\n# Added by simple-mcp-server\nexport PATH="$HOME/.local/bin:$PATH"\n'
+    )
 
     try:
         # Check if already added
         if bashrc.exists():
             content = bashrc.read_text()
-            if '.local/bin' in content:
+            if ".local/bin" in content:
                 return True  # Already there
 
         # Append to bashrc
-        with open(bashrc, 'a') as f:
+        with open(bashrc, "a") as f:
             f.write(export_line)
         return True
     except Exception:
@@ -357,14 +352,14 @@ def ensure_cloudflared() -> bool:
     local_bin = CLOUDFLARED_INSTALL_DIR / "cloudflared"
     if local_bin.exists():
         print(f"\n[INFO] cloudflared found at {local_bin}")
-        print(f"  Add to PATH: export PATH=\"$HOME/.local/bin:$PATH\"")
+        print('  Add to PATH: export PATH="$HOME/.local/bin:$PATH"')
         return True
 
     # Auto-install on Linux/macOS
     if platform.system() in ("Linux", "Darwin"):
         print("\n[INFO] cloudflared not found. Installing automatically...")
         if install_cloudflared():
-            print(f"\n[INFO] Add to PATH: export PATH=\"$HOME/.local/bin:$PATH\"")
+            print('\n[INFO] Add to PATH: export PATH="$HOME/.local/bin:$PATH"')
             print("  Or add to ~/.bashrc for permanent PATH update.\n")
             return True
 
@@ -372,6 +367,7 @@ def ensure_cloudflared() -> bool:
 
 
 # ============== Daemon Functions ==============
+
 
 def save_pid(pid: int):
     """Save daemon PID to file."""
@@ -400,9 +396,7 @@ def is_process_running(pid: int) -> bool:
     if platform.system() == "Windows":
         try:
             result = subprocess.run(
-                ["tasklist", "/FI", f"PID eq {pid}"],
-                capture_output=True,
-                text=True
+                ["tasklist", "/FI", f"PID eq {pid}"], capture_output=True, text=True
             )
             return str(pid) in result.stdout
         except Exception:
@@ -465,12 +459,13 @@ def daemonize():
     sys.stderr.flush()
 
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    log_fd = open(LOG_FILE, 'a')
+    log_fd = open(LOG_FILE, "a")
     os.dup2(log_fd.fileno(), sys.stdout.fileno())
     os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
 
 # ============== CLI Commands ==============
+
 
 def cmd_start():
     """Start the MCP server in background."""
@@ -505,7 +500,9 @@ def cmd_start():
     # Check cloudflared (auto-install on Linux/macOS if needed)
     if not ensure_cloudflared():
         print("\n[ERROR] cloudflared not found and auto-install failed.")
-        print("  Install manually: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/")
+        print(
+            "  Install manually: https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/"
+        )
         sys.exit(1)
 
     # Warn about cloudflared service
@@ -567,10 +564,11 @@ def cmd_start():
         cmd = [sys.executable, str(script_path), "_daemon"]
         proc = subprocess.Popen(
             cmd,
-            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.DETACHED_PROCESS,
-            stdout=open(LOG_FILE, 'a'),
+            creationflags=subprocess.CREATE_NEW_PROCESS_GROUP
+            | subprocess.DETACHED_PROCESS,
+            stdout=open(LOG_FILE, "a"),
             stderr=subprocess.STDOUT,
-            stdin=subprocess.DEVNULL
+            stdin=subprocess.DEVNULL,
         )
         save_pid(proc.pid)
         print(f"Server started in background (PID: {proc.pid})")
@@ -580,6 +578,7 @@ def cmd_start():
         if pid > 0:
             # Parent process - wait a moment then exit
             import time
+
             time.sleep(1)  # Give child time to start
             # Read the PID saved by child
             child_pid = read_pid()
@@ -605,7 +604,7 @@ def cmd_start():
         sys.stdout.flush()
         sys.stderr.flush()
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-        log_fd = open(LOG_FILE, 'a')
+        log_fd = open(LOG_FILE, "a")
         os.dup2(log_fd.fileno(), sys.stdout.fileno())
         os.dup2(log_fd.fileno(), sys.stderr.fileno())
 
@@ -680,7 +679,7 @@ def cmd_login():
     if config.is_valid():
         print(f"\nAlready logged in as: {config.email}")
         response = input("Re-login with a different account? [y/N]: ").strip().lower()
-        if response != 'y':
+        if response != "y":
             print("Login cancelled.")
             return
 
@@ -714,15 +713,15 @@ def cmd_status():
     # Account
     print("\n[Account]")
     if config.is_valid():
-        print(f"  Status:   Logged in")
+        print("  Status:   Logged in")
         print(f"  Email:    {config.email}")
         print(f"  User ID:  {config.user_id[:8]}...")
         if SUPABASE_URL and SUPABASE_ANON_KEY:
             user_info = fetch_user_info(config.access_token)
             if user_info:
-                if user_info.get('name'):
+                if user_info.get("name"):
                     print(f"  Name:     {user_info['name']}")
-                if user_info.get('organization'):
+                if user_info.get("organization"):
                     print(f"  Org:      {user_info['organization']}")
     else:
         print("  Status:   Not logged in")
@@ -731,7 +730,7 @@ def cmd_status():
     # Tunnel
     print("\n[Tunnel]")
     if config.has_tunnel():
-        print(f"  Status:   Configured")
+        print("  Status:   Configured")
         print(f"  Name:     {config.robot_name}")
         print(f"  URL:      {config.tunnel_url}")
         print()
@@ -756,14 +755,16 @@ def cmd_status():
     print("\n[Cloudflared]")
     local_bin = CLOUDFLARED_INSTALL_DIR / "cloudflared"
     if check_cloudflared():
-        print(f"  Status:   Installed (system)")
+        print("  Status:   Installed (system)")
         print(f"  Path:     {shutil.which('cloudflared')}")
     elif local_bin.exists():
-        print(f"  Status:   Installed (local)")
+        print("  Status:   Installed (local)")
         print(f"  Path:     {local_bin}")
     else:
         print("  Status:   Not installed")
-        print("  Install:  https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/")
+        print(
+            "  Install:  https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/"
+        )
 
     # Show tunnel process status
     if check_cloudflared_process():
@@ -787,11 +788,11 @@ def cmd_status():
 def cmd_verify():
     """Comprehensive verification of server, tunnel, and connectivity."""
     config = load_config()
-    
+
     print("\n" + "=" * 70)
     print("  Comprehensive Tunnel & Server Verification")
     print("=" * 70)
-    
+
     # Initialize results tracking
     results = {
         "config": False,
@@ -799,9 +800,9 @@ def cmd_verify():
         "cloudflared": False,
         "tunnel_auth": False,
         "dns": False,
-        "tunnel_endpoints": False
+        "tunnel_endpoints": False,
     }
-    
+
     # ========== 1. Configuration Check ==========
     print("\n[1] Configuration")
     print("-" * 70)
@@ -811,55 +812,55 @@ def cmd_verify():
         print("\n" + "=" * 70)
         return
     results["config"] = True
-    print(f"  ✓ Configuration found")
+    print("  ✓ Configuration found")
     print(f"    Robot Name:  {config.robot_name}")
     print(f"    Tunnel URL:  {config.tunnel_url}")
-    print(f"    Token:       {'Present' if config.tunnel_token else 'Missing'} ({len(config.tunnel_token) if config.tunnel_token else 0} chars)")
-    
+    print(
+        f"    Token:       {'Present' if config.tunnel_token else 'Missing'} ({len(config.tunnel_token) if config.tunnel_token else 0} chars)"
+    )
+
     tunnel_url = config.tunnel_url
     from urllib.parse import urlparse
+
     parsed = urlparse(tunnel_url)
     hostname = parsed.hostname
-    
+
     # ========== 2. Local Server Test ==========
     print("\n[2] Local Server Connection")
     print("-" * 70)
-    server_running = False
     running, pid = is_daemon_running()
     if running:
         print(f"  ✓ Server process running (PID: {pid})")
-        server_running = True
     elif is_server_running():
-        print(f"  ✓ Server running on port 8766 (not managed)")
-        server_running = True
+        print("  ✓ Server running on port 8766 (not managed)")
     else:
-        print(f"  ✗ Server not running")
-        print(f"  → Run: simple-mcp-server start")
+        print("  ✗ Server not running")
+        print("  → Run: simple-mcp-server start")
         print("\n" + "=" * 70)
         return
-    
+
     # Test local HTTP connection
     try:
         response = requests.get("http://localhost:8766/health", timeout=2)
         if response.status_code == 200:
-            print(f"  ✓ Local server responding")
+            print("  ✓ Local server responding")
             print(f"    http://localhost:8766/health → HTTP {response.status_code}")
             results["server_local"] = True
         else:
             print(f"  ⚠ Local server responding with HTTP {response.status_code}")
     except requests.exceptions.ConnectionError:
-        print(f"  ✗ Cannot connect to localhost:8766")
-        print(f"  → Check if server is actually running")
+        print("  ✗ Cannot connect to localhost:8766")
+        print("  → Check if server is actually running")
     except Exception as e:
         print(f"  ✗ Error testing local server: {str(e)[:50]}")
-    
+
     # ========== 3. Cloudflared Process ==========
     print("\n[3] Cloudflared Process")
     print("-" * 70)
     if check_cloudflared_process():
-        print(f"  ✓ Cloudflared process running")
+        print("  ✓ Cloudflared process running")
         results["cloudflared"] = True
-        
+
         # Check cloudflared version
         cloudflared_path = get_cloudflared_path()
         try:
@@ -867,49 +868,49 @@ def cmd_verify():
                 [cloudflared_path, "--version"],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0:
-                version = result.stdout.split('\n')[0] if result.stdout else "unknown"
+                version = result.stdout.split("\n")[0] if result.stdout else "unknown"
                 print(f"    Version: {version}")
         except Exception:
             pass
     else:
-        print(f"  ✗ Cloudflared process not running")
-        print(f"  → Run: simple-mcp-server start")
+        print("  ✗ Cloudflared process not running")
+        print("  → Run: simple-mcp-server start")
         print("\n" + "=" * 70)
         return
-    
+
     # ========== 4. Tunnel Authentication & Status ==========
     print("\n[4] Tunnel Authentication & Status")
     print("-" * 70)
     logs = get_cloudflared_logs(100)
     auth_ok = False
     connections = 0
-    last_config = None
-    
+
     for line in logs:
         if "Settings: map[token:" in line:
-            print(f"  ✓ Token loaded by cloudflared")
+            print("  ✓ Token loaded by cloudflared")
             auth_ok = True
         if "Registered tunnel connection" in line:
             connections += 1
             import re
-            match = re.search(r'connection=([a-f0-9-]+)', line)
+
+            match = re.search(r"connection=([a-f0-9-]+)", line)
             if match:
                 conn_id = match.group(1)[:8]
                 print(f"  ✓ Tunnel connection registered: {conn_id}...")
         if "Updated to new configuration" in line:
             import json
             import re
+
             json_match = re.search(r'config="({[^"]+})"', line)
             if json_match:
                 try:
                     config_json = json_match.group(1).replace('\\"', '"')
                     config_data = json.loads(config_json)
-                    last_config = config_data
                     if "ingress" in config_data:
-                        print(f"  ✓ Configuration received from Cloudflare")
+                        print("  ✓ Configuration received from Cloudflare")
                         for rule in config_data["ingress"]:
                             h = rule.get("hostname", "*")
                             s = rule.get("service", "unknown")
@@ -917,76 +918,88 @@ def cmd_verify():
                                 print(f"    Rule: {h} → {s}")
                 except Exception:
                     pass
-        if "ERR" in line and any(x in line.lower() for x in ["auth", "unauthorized", "forbidden", "401", "403"]):
-            print(f"  ✗ Authentication error in logs")
+        if "ERR" in line and any(
+            x in line.lower()
+            for x in ["auth", "unauthorized", "forbidden", "401", "403"]
+        ):
+            print("  ✗ Authentication error in logs")
             print(f"    {line.strip()[:80]}")
             auth_ok = False
-    
+
     if auth_ok and connections > 0:
-        print(f"  ✓ Authentication: SUCCESS")
+        print("  ✓ Authentication: SUCCESS")
         print(f"  ✓ Active connections: {connections}")
         results["tunnel_auth"] = True
     else:
-        print(f"  ⚠ Authentication status unclear")
+        print("  ⚠ Authentication status unclear")
         if not auth_ok:
-            print(f"    → Check cloudflared logs for errors")
-    
+            print("    → Check cloudflared logs for errors")
+
     # ========== 5. DNS Resolution ==========
     print("\n[5] DNS Resolution")
     print("-" * 70)
     if hostname:
         try:
             import socket
+
             ip_addresses = socket.gethostbyname_ex(hostname)
             print(f"  ✓ DNS record exists for {hostname}")
             print(f"    Resolves to: {', '.join(ip_addresses[2][:3])}")
-            
+
             # Check if Cloudflare IPs
-            cf_ips = [ip for ip in ip_addresses[2] if any(ip.startswith(p) for p in ['104.', '172.', '198.', '173.'])]
+            cf_ips = [
+                ip
+                for ip in ip_addresses[2]
+                if any(ip.startswith(p) for p in ["104.", "172.", "198.", "173."])
+            ]
             if cf_ips:
-                print(f"    → Cloudflare IP detected ✓")
+                print("    → Cloudflare IP detected ✓")
             else:
-                print(f"    ⚠ IPs don't look like Cloudflare")
-            
+                print("    ⚠ IPs don't look like Cloudflare")
+
             results["dns"] = True
         except socket.gaierror as e:
             print(f"  ✗ DNS resolution failed: {e}")
             print(f"    Domain: {hostname}")
-            print(f"    → DNS record missing! Add CNAME in Cloudflare:")
+            print("    → DNS record missing! Add CNAME in Cloudflare:")
             print(f"       Name: {config.robot_name}")
-            print(f"       Target: <tunnel-id>.cfargotunnel.com")
-            print(f"       Proxy: Proxied (orange cloud) ✓")
+            print("       Target: <tunnel-id>.cfargotunnel.com")
+            print("       Proxy: Proxied (orange cloud) ✓")
             results["dns"] = False
         except Exception as e:
             print(f"  ✗ DNS check error: {e}")
             results["dns"] = False
     else:
-        print(f"  ✗ Invalid tunnel URL")
+        print("  ✗ Invalid tunnel URL")
         results["dns"] = False
-    
+
     # ========== 6. Tunnel Endpoint Tests ==========
     print("\n[6] Tunnel Endpoint Tests")
     print("-" * 70)
     if not results["dns"]:
-        print(f"  ⚠ Skipping tunnel tests (DNS not configured)")
-        print(f"    → Fix DNS first, then re-run verify")
+        print("  ⚠ Skipping tunnel tests (DNS not configured)")
+        print("    → Fix DNS first, then re-run verify")
     else:
         endpoints = [
             ("/", "Root endpoint"),
             ("/health", "Health check"),
         ]
-        
+
         all_endpoints_ok = True
         for endpoint, description in endpoints:
             url = f"{tunnel_url}{endpoint}"
             try:
                 response = requests.get(url, timeout=15, allow_redirects=True)
                 if response.status_code == 200:
-                    print(f"  ✓ {endpoint:15} {description:20} HTTP {response.status_code}")
+                    print(
+                        f"  ✓ {endpoint:15} {description:20} HTTP {response.status_code}"
+                    )
                 else:
-                    print(f"  ⚠ {endpoint:15} {description:20} HTTP {response.status_code}")
+                    print(
+                        f"  ⚠ {endpoint:15} {description:20} HTTP {response.status_code}"
+                    )
                     if response.status_code in [502, 503]:
-                        print(f"      → Cloudflared can't reach localhost:8766")
+                        print("      → Cloudflared can't reach localhost:8766")
                     all_endpoints_ok = False
             except requests.exceptions.Timeout:
                 print(f"  ✗ {endpoint:15} {description:20} Timeout (15s)")
@@ -995,11 +1008,11 @@ def cmd_verify():
                 error_msg = str(e)
                 print(f"  ✗ {endpoint:15} {description:20} Connection failed")
                 if "Name or service not known" in error_msg or "nodename" in error_msg:
-                    print(f"      → DNS resolution issue")
+                    print("      → DNS resolution issue")
                 elif "Connection refused" in error_msg:
-                    print(f"      → Tunnel not accepting connections")
+                    print("      → Tunnel not accepting connections")
                 elif "Max retries" in error_msg:
-                    print(f"      → Cannot reach tunnel endpoint")
+                    print("      → Cannot reach tunnel endpoint")
                 all_endpoints_ok = False
             except requests.exceptions.SSLError as e:
                 print(f"  ✗ {endpoint:15} {description:20} SSL Error")
@@ -1008,46 +1021,52 @@ def cmd_verify():
             except Exception as e:
                 print(f"  ✗ {endpoint:15} {description:20} Error: {str(e)[:50]}")
                 all_endpoints_ok = False
-        
+
         results["tunnel_endpoints"] = all_endpoints_ok
-    
+
     # ========== Summary ==========
     print("\n" + "=" * 70)
     print("  Verification Summary")
     print("=" * 70)
-    
+
     total_checks = len(results)
     passed_checks = sum(1 for v in results.values() if v)
-    
+
     print(f"\n  Checks passed: {passed_checks}/{total_checks}")
-    print(f"\n  Status:")
+    print("\n  Status:")
     print(f"    [1] Configuration:        {'✓' if results['config'] else '✗'}")
     print(f"    [2] Local Server:         {'✓' if results['server_local'] else '✗'}")
     print(f"    [3] Cloudflared Process:  {'✓' if results['cloudflared'] else '✗'}")
     print(f"    [4] Tunnel Authentication: {'✓' if results['tunnel_auth'] else '✗'}")
     print(f"    [5] DNS Resolution:       {'✓' if results['dns'] else '✗'}")
-    print(f"    [6] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}")
-    
+    print(
+        f"    [6] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}"
+    )
+
     if all(results.values()):
-        print(f"\n  ✓ All checks passed! Your MCP server is fully operational.")
-        print(f"\n  Access your server at:")
+        print("\n  ✓ All checks passed! Your MCP server is fully operational.")
+        print("\n  Access your server at:")
         print(f"    {tunnel_url}/mcp")
         print(f"    {tunnel_url}/sse")
     else:
-        print(f"\n  ⚠ Some checks failed. See details above.")
-        print(f"\n  Next steps:")
+        print("\n  ⚠ Some checks failed. See details above.")
+        print("\n  Next steps:")
         if not results["dns"]:
-            print(f"    1. Add DNS CNAME record in Cloudflare dashboard")
-            print(f"       → Go to: https://dash.cloudflare.com")
-            print(f"       → Domain: robotmcp.ai → DNS → Records")
-            print(f"       → Add: {config.robot_name} CNAME → <tunnel-id>.cfargotunnel.com")
+            print("    1. Add DNS CNAME record in Cloudflare dashboard")
+            print("       → Go to: https://dash.cloudflare.com")
+            print("       → Domain: robotmcp.ai → DNS → Records")
+            print(
+                f"       → Add: {config.robot_name} CNAME → <tunnel-id>.cfargotunnel.com"
+            )
         if not results["tunnel_endpoints"] and results["dns"]:
-            print(f"    1. Check cloudflared logs: tail -f ~/.simple-mcp-server/cloudflared.log")
-            print(f"    2. Verify server is running: curl http://localhost:8766/health")
+            print(
+                "    1. Check cloudflared logs: tail -f ~/.simple-mcp-server/cloudflared.log"
+            )
+            print("    2. Verify server is running: curl http://localhost:8766/health")
         if not results["server_local"]:
-            print(f"    1. Start server: simple-mcp-server start")
-        print(f"    2. Re-run verification: simple-mcp-server verify")
-    
+            print("    1. Start server: simple-mcp-server start")
+        print("    2. Re-run verification: simple-mcp-server verify")
+
     print("=" * 70 + "\n")
 
 
@@ -1124,6 +1143,7 @@ For more information, see: https://github.com/mokcontoro/simple_mcp_server
 
 # ============== Main Entry Point ==============
 
+
 def main():
     """Main entry point for CLI."""
     # Internal command for Windows daemon subprocess
@@ -1152,15 +1172,25 @@ Examples:
   simple-mcp-server start
   simple-mcp-server status
   simple-mcp-server stop
-"""
+""",
     )
 
     parser.add_argument(
         "command",
         nargs="?",
         default="start",
-        choices=["start", "stop", "restart", "status", "login", "logout", "verify", "version", "help"],
-        help="Command to run (default: start)"
+        choices=[
+            "start",
+            "stop",
+            "restart",
+            "status",
+            "login",
+            "logout",
+            "verify",
+            "version",
+            "help",
+        ],
+        help="Command to run (default: start)",
     )
 
     # Legacy flags for backward compatibility

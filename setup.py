@@ -1,4 +1,5 @@
 """Setup flow for simple-mcp-server (browser-based login)."""
+
 import os
 import re
 import secrets
@@ -26,7 +27,7 @@ def is_wsl() -> bool:
                 version = f.read().lower()
                 if "microsoft" in version or "wsl" in version:
                     return True
-        except:
+        except Exception:
             pass
     # Also check WSL_DISTRO_NAME environment variable
     if os.environ.get("WSL_DISTRO_NAME"):
@@ -43,7 +44,7 @@ def open_browser(url: str) -> None:
             result = subprocess.run(
                 ["powershell.exe", "-Command", f'Start-Process "{url}"'],
                 capture_output=True,
-                timeout=5
+                timeout=5,
             )
             if result.returncode == 0:
                 return
@@ -52,11 +53,7 @@ def open_browser(url: str) -> None:
 
         # Fallback: try wslview (from wslu package)
         try:
-            result = subprocess.run(
-                ["wslview", url],
-                capture_output=True,
-                timeout=5
-            )
+            result = subprocess.run(["wslview", url], capture_output=True, timeout=5)
             if result.returncode == 0:
                 return
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -65,9 +62,7 @@ def open_browser(url: str) -> None:
         # Last resort: cmd.exe with quoted URL
         try:
             subprocess.run(
-                ["cmd.exe", "/c", "start", "", url],
-                capture_output=True,
-                timeout=5
+                ["cmd.exe", "/c", "start", "", url], capture_output=True, timeout=5
             )
             return
         except (FileNotFoundError, subprocess.TimeoutExpired):
@@ -80,7 +75,7 @@ def open_browser(url: str) -> None:
     # Suppress stderr temporarily to hide gio errors
     old_stderr = sys.stderr
     try:
-        sys.stderr = open(os.devnull, 'w')
+        sys.stderr = open(os.devnull, "w")
         webbrowser.open(url)
     finally:
         sys.stderr.close()
@@ -101,18 +96,21 @@ def get_wsl_ip() -> str:
             ips = result.stdout.strip().split()
             if ips:
                 return ips[0]
-    except:
+    except Exception:
         pass
 
     # Fallback: try ip addr to get eth0 IP
     try:
-        result = subprocess.run(["ip", "addr", "show", "eth0"], capture_output=True, text=True)
+        result = subprocess.run(
+            ["ip", "addr", "show", "eth0"], capture_output=True, text=True
+        )
         if result.returncode == 0:
             import re
-            match = re.search(r'inet (\d+\.\d+\.\d+\.\d+)', result.stdout)
+
+            match = re.search(r"inet (\d+\.\d+\.\d+\.\d+)", result.stdout)
             if match:
                 return match.group(1)
-    except:
+    except Exception:
         pass
 
     return ""
@@ -217,7 +215,7 @@ def validate_robot_name(name: str) -> tuple[bool, str]:
         return False, "Robot name must be at least 3 characters"
     if len(name) > 32:
         return False, "Robot name must be at most 32 characters"
-    if not re.match(r'^[a-z0-9]+(-[a-z0-9]+)*$', name):
+    if not re.match(r"^[a-z0-9]+(-[a-z0-9]+)*$", name):
         return False, "Use only lowercase letters, numbers, and hyphens"
     return True, ""
 
@@ -249,9 +247,7 @@ def fetch_servers(access_token: str) -> dict:
     """
     try:
         response = requests.get(
-            f"{SERVER_URL}/servers",
-            params={"access_token": access_token},
-            timeout=30
+            f"{SERVER_URL}/servers", params={"access_token": access_token}, timeout=30
         )
         return response.json()
     except requests.RequestException as e:
@@ -274,7 +270,9 @@ def select_server(owned: list, shared: list) -> dict | None:
         for i, server in enumerate(owned):
             all_servers.append(server)
             status = "active" if server.get("is_active", True) else "inactive"
-            print(f"  [{len(all_servers)}] {server['robot_name']}.robotmcp.ai ({status})")
+            print(
+                f"  [{len(all_servers)}] {server['robot_name']}.robotmcp.ai ({status})"
+            )
 
     if shared:
         print("\n--- Shared With You ---")
@@ -282,7 +280,7 @@ def select_server(owned: list, shared: list) -> dict | None:
             all_servers.append(server)
             print(f"  [{len(all_servers)}] {server['robot_name']}.robotmcp.ai")
 
-    print(f"\n  [0] Create a new server")
+    print("\n  [0] Create a new server")
     print()
 
     while True:
@@ -300,7 +298,9 @@ def select_server(owned: list, shared: list) -> dict | None:
             print("  Please enter a number")
 
 
-def create_tunnel(robot_name: str, user_id: str, access_token: str, force: bool = False) -> dict:
+def create_tunnel(
+    robot_name: str, user_id: str, access_token: str, force: bool = False
+) -> dict:
     """Call Railway API to create Cloudflare tunnel.
 
     Args:
@@ -322,9 +322,9 @@ def create_tunnel(robot_name: str, user_id: str, access_token: str, force: bool 
                 "robot_name": robot_name,
                 "user_id": user_id,
                 "access_token": access_token,
-                "force": "true" if force else "false"
+                "force": "true" if force else "false",
             },
-            timeout=60
+            timeout=60,
         )
         return response.json()
     except requests.RequestException as e:
@@ -354,7 +354,9 @@ def run_login_flow() -> bool:
         callback_host = "127.0.0.1"
 
     # Build login URL with the appropriate callback host
-    login_url = f"{SERVER_URL}/cli-login?session={session_id}&port={port}&host={callback_host}"
+    login_url = (
+        f"{SERVER_URL}/cli-login?session={session_id}&port={port}&host={callback_host}"
+    )
 
     print("Opening browser for login...")
     print(f"If browser doesn't open, visit:\n  {login_url}\n")
@@ -394,7 +396,7 @@ def run_login_flow() -> bool:
             refresh_token=result.get("refresh_token"),
         )
         print(f"\n[OK] Logged in as: {result['email']}")
-        print(f"  Config saved to: ~/.simple-mcp-server/config.json")
+        print("  Config saved to: ~/.simple-mcp-server/config.json")
 
         # Fetch existing servers
         print("\nChecking for existing servers...")
@@ -413,17 +415,19 @@ def run_login_flow() -> bool:
                     update_config_tunnel(
                         robot_name=selected["robot_name"],
                         tunnel_token=selected["tunnel_token"],
-                        tunnel_url=selected["tunnel_url"]
+                        tunnel_url=selected["tunnel_url"],
                     )
                     print(f"\n[OK] Selected server: {selected['tunnel_url']}")
-                    print(f"  Tunnel token saved to config.\n")
+                    print("  Tunnel token saved to config.\n")
                     return True
                 # else: user wants to create new server, continue below
             else:
                 print("  No existing servers found.")
         else:
             # Failed to fetch servers - continue with new server flow
-            print(f"  Could not fetch servers: {servers_result.get('error', 'Unknown error')}")
+            print(
+                f"  Could not fetch servers: {servers_result.get('error', 'Unknown error')}"
+            )
 
         print()  # Spacing before robot name prompt
 
@@ -435,48 +439,57 @@ def run_login_flow() -> bool:
             tunnel_result = create_tunnel(
                 robot_name=robot_name,
                 user_id=result["user_id"],
-                access_token=result["access_token"]
+                access_token=result["access_token"],
             )
 
             if tunnel_result.get("success"):
                 update_config_tunnel(
                     robot_name=robot_name,
                     tunnel_token=tunnel_result["tunnel_token"],
-                    tunnel_url=tunnel_result["tunnel_url"]
+                    tunnel_url=tunnel_result["tunnel_url"],
                 )
                 print(f"[OK] Tunnel created: {tunnel_result['tunnel_url']}")
-                print(f"  Tunnel token saved to config.\n")
+                print("  Tunnel token saved to config.\n")
                 return True
             else:
                 error = tunnel_result.get("error", "Unknown error")
                 print(f"[X] Tunnel creation failed: {error}")
 
                 # Check if name is taken
-                if "already taken" in error.lower() or "already exists" in error.lower():
+                if (
+                    "already taken" in error.lower()
+                    or "already exists" in error.lower()
+                ):
                     # Check if owned by same user - offer to reuse
                     if tunnel_result.get("owned_by_user"):
-                        print(f"\n  You already own the tunnel '{robot_name}.robotmcp.ai'.")
+                        print(
+                            f"\n  You already own the tunnel '{robot_name}.robotmcp.ai'."
+                        )
                         reuse = input("  Reuse this tunnel? (y/n): ").strip().lower()
-                        if reuse == 'y':
+                        if reuse == "y":
                             print(f"\nReusing tunnel {robot_name}.robotmcp.ai...")
                             # Retry with force=True to get existing tunnel
                             tunnel_result = create_tunnel(
                                 robot_name=robot_name,
                                 user_id=result["user_id"],
                                 access_token=result["access_token"],
-                                force=True
+                                force=True,
                             )
                             if tunnel_result.get("success"):
                                 update_config_tunnel(
                                     robot_name=robot_name,
                                     tunnel_token=tunnel_result["tunnel_token"],
-                                    tunnel_url=tunnel_result["tunnel_url"]
+                                    tunnel_url=tunnel_result["tunnel_url"],
                                 )
-                                print(f"[OK] Tunnel reused: {tunnel_result['tunnel_url']}")
-                                print(f"  Tunnel token saved to config.\n")
+                                print(
+                                    f"[OK] Tunnel reused: {tunnel_result['tunnel_url']}"
+                                )
+                                print("  Tunnel token saved to config.\n")
                                 return True
                             else:
-                                print(f"[X] Failed to reuse tunnel: {tunnel_result.get('error')}")
+                                print(
+                                    f"[X] Failed to reuse tunnel: {tunnel_result.get('error')}"
+                                )
                                 print("  Please try a different name.\n")
                                 continue
                         else:

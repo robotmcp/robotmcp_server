@@ -3,6 +3,7 @@
 This module scans .gitmodules for submodules with pyproject.toml files
 and ensures their dependencies are installed at server startup.
 """
+
 import configparser
 import subprocess
 import sys
@@ -27,13 +28,15 @@ def parse_gitmodules(root: Path) -> list[dict]:
     for section in config.sections():
         # Sections are like: submodule "ros-mcp-server"
         if section.startswith('submodule "') and section.endswith('"'):
-            name = section[len('submodule "'):-1]
-            path = config.get(section, 'path', fallback=None)
+            name = section[len('submodule "') : -1]
+            path = config.get(section, "path", fallback=None)
             if path:
-                submodules.append({
-                    'name': name,
-                    'path': path,
-                })
+                submodules.append(
+                    {
+                        "name": name,
+                        "path": path,
+                    }
+                )
 
     return submodules
 
@@ -55,9 +58,11 @@ def get_package_name_from_pyproject(pyproject_path: Path) -> str | None:
 
 def is_package_installed(package_name: str) -> bool:
     """Check if a package is installed."""
-    installed = {dist.metadata['Name'].lower() for dist in distributions()}
-    return package_name.lower().replace('_', '-') in installed or \
-           package_name.lower().replace('-', '_') in installed
+    installed = {dist.metadata["Name"].lower() for dist in distributions()}
+    return (
+        package_name.lower().replace("_", "-") in installed
+        or package_name.lower().replace("-", "_") in installed
+    )
 
 
 def install_submodule(submodule_path: Path, verbose: bool = True) -> bool:
@@ -79,7 +84,7 @@ def install_submodule(submodule_path: Path, verbose: bool = True) -> bool:
                 cmd,
                 capture_output=True,
                 text=True,
-                timeout=120  # 2 minute timeout
+                timeout=120,  # 2 minute timeout
             )
             if result.returncode == 0:
                 return True
@@ -93,7 +98,9 @@ def install_submodule(submodule_path: Path, verbose: bool = True) -> bool:
     return False
 
 
-def discover_and_install_submodules(root: Path | None = None, verbose: bool = True) -> dict:
+def discover_and_install_submodules(
+    root: Path | None = None, verbose: bool = True
+) -> dict:
     """Discover git submodules with pyproject.toml and install missing ones.
 
     Args:
@@ -107,10 +114,10 @@ def discover_and_install_submodules(root: Path | None = None, verbose: bool = Tr
         root = Path(__file__).parent
 
     result = {
-        'found': [],
-        'installed': [],
-        'failed': [],
-        'already_installed': [],
+        "found": [],
+        "installed": [],
+        "failed": [],
+        "already_installed": [],
     }
 
     # Parse .gitmodules
@@ -120,16 +127,18 @@ def discover_and_install_submodules(root: Path | None = None, verbose: bool = Tr
         return result
 
     if verbose:
-        print(f"\nDiscovering submodule dependencies...")
+        print("\nDiscovering submodule dependencies...")
 
     for submodule in submodules:
-        submodule_path = root / submodule['path']
+        submodule_path = root / submodule["path"]
         pyproject_path = submodule_path / "pyproject.toml"
 
         # Check if submodule directory exists
         if not submodule_path.exists():
             if verbose:
-                print(f"  [SKIP] {submodule['name']}: directory not found (run 'git submodule update --init')")
+                print(
+                    f"  [SKIP] {submodule['name']}: directory not found (run 'git submodule update --init')"
+                )
             continue
 
         # Check if it has pyproject.toml
@@ -138,7 +147,7 @@ def discover_and_install_submodules(root: Path | None = None, verbose: bool = Tr
                 print(f"  [SKIP] {submodule['name']}: no pyproject.toml found")
             continue
 
-        result['found'].append(submodule['name'])
+        result["found"].append(submodule["name"])
 
         # Get package name from pyproject.toml
         package_name = get_package_name_from_pyproject(pyproject_path)
@@ -149,7 +158,7 @@ def discover_and_install_submodules(root: Path | None = None, verbose: bool = Tr
 
         # Check if already installed
         if is_package_installed(package_name):
-            result['already_installed'].append(submodule['name'])
+            result["already_installed"].append(submodule["name"])
             if verbose:
                 print(f"  [OK] {submodule['name']} ({package_name}): already installed")
             continue
@@ -159,15 +168,15 @@ def discover_and_install_submodules(root: Path | None = None, verbose: bool = Tr
             print(f"  [INSTALLING] {submodule['name']} ({package_name})...")
 
         if install_submodule(submodule_path, verbose):
-            result['installed'].append(submodule['name'])
+            result["installed"].append(submodule["name"])
             if verbose:
                 print(f"  [OK] {submodule['name']}: installed successfully")
         else:
-            result['failed'].append(submodule['name'])
+            result["failed"].append(submodule["name"])
             if verbose:
                 print(f"  [FAILED] {submodule['name']}: installation failed")
 
-    if verbose and (result['installed'] or result['failed']):
+    if verbose and (result["installed"] or result["failed"]):
         print()  # Extra newline after installation
 
     return result
@@ -184,7 +193,7 @@ def ensure_submodule_deps(root: Path | None = None) -> bool:
     result = discover_and_install_submodules(root, verbose=True)
 
     # Return False if any installations failed
-    return len(result['failed']) == 0
+    return len(result["failed"]) == 0
 
 
 if __name__ == "__main__":

@@ -28,7 +28,9 @@ ROBOTMCP_CLOUD_URL = os.getenv("ROBOTMCP_CLOUD_URL", "https://app.robotmcp.ai")
 
 def get_server_url() -> str:
     """Get the server URL for OAuth metadata."""
-    return _config.tunnel_url or os.getenv("SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app")
+    return _config.tunnel_url or os.getenv(
+        "SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app"
+    )
 
 
 async def check_shared_access(robot_name: str, user_id: str) -> bool:
@@ -37,7 +39,7 @@ async def check_shared_access(robot_name: str, user_id: str) -> bool:
         async with httpx.AsyncClient(timeout=5.0) as client:
             response = await client.post(
                 f"{ROBOTMCP_CLOUD_URL}/api/check-access",
-                params={"robot_name": robot_name, "user_id": user_id}
+                params={"robot_name": robot_name, "user_id": user_id},
             )
             if response.status_code == 200:
                 data = response.json()
@@ -58,9 +60,14 @@ class MCPOAuthMiddleware(BaseHTTPMiddleware):
         if not auth_header.startswith("Bearer "):
             logger.info("[AUTH] Request rejected: no Bearer token")
             return JSONResponse(
-                {"error": "unauthorized", "error_description": "Missing or invalid Authorization header"},
+                {
+                    "error": "unauthorized",
+                    "error_description": "Missing or invalid Authorization header",
+                },
                 status_code=401,
-                headers={"WWW-Authenticate": f'Bearer resource_metadata="{server_url}/.well-known/oauth-protected-resource"'}
+                headers={
+                    "WWW-Authenticate": f'Bearer resource_metadata="{server_url}/.well-known/oauth-protected-resource"'
+                },
             )
 
         token = auth_header[7:]
@@ -71,9 +78,14 @@ class MCPOAuthMiddleware(BaseHTTPMiddleware):
         if not token_data:
             logger.info("[AUTH] Request rejected: invalid or expired token")
             return JSONResponse(
-                {"error": "unauthorized", "error_description": "Invalid or expired token"},
+                {
+                    "error": "unauthorized",
+                    "error_description": "Invalid or expired token",
+                },
                 status_code=401,
-                headers={"WWW-Authenticate": f'Bearer resource_metadata="{server_url}/.well-known/oauth-protected-resource"'}
+                headers={
+                    "WWW-Authenticate": f'Bearer resource_metadata="{server_url}/.well-known/oauth-protected-resource"'
+                },
             )
 
         # Check authorization (creator or shared member)
@@ -88,11 +100,18 @@ class MCPOAuthMiddleware(BaseHTTPMiddleware):
         # Check if user is a shared member via robotmcp-cloud API
         if _config.robot_name:
             if await check_shared_access(_config.robot_name, connecting_user_id):
-                logger.info(f"[AUTH] Request authorized (shared member): {token_data.get('email')}")
+                logger.info(
+                    f"[AUTH] Request authorized (shared member): {token_data.get('email')}"
+                )
                 return await call_next(request)
 
-        logger.warning(f"[AUTH] Access denied: user {connecting_user_id} is not authorized")
+        logger.warning(
+            f"[AUTH] Access denied: user {connecting_user_id} is not authorized"
+        )
         return JSONResponse(
-            {"error": "forbidden", "error_description": "Access denied: not authorized for this server"},
-            status_code=403
+            {
+                "error": "forbidden",
+                "error_description": "Access denied: not authorized for this server",
+            },
+            status_code=403,
         )
