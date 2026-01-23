@@ -1,0 +1,7 @@
+[submodule "test-mcp-server"]
+	path = test-mcp-server
+	url = https://github.com/stex2005/test-mcp-server
+[submodule "ros-mcp-server"]
+	path = ros-mcp-server
+	url = https://github.com/robotmcp/ros-mcp-server
+	branch = main

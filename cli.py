@@ -522,6 +522,15 @@ def cmd_start():
         print("  Try manually: pip install -e ./ros-mcp-server")
         print()
 
+    # Check module compatibility
+    print("\nChecking module compatibility...")
+    compat = check_modules_compatibility(verbose=True)
+    if compat["incompatible"]:
+        print(f"\n[WARNING] {len(compat['incompatible'])} module(s) not compatible.")
+        print("  These modules will not provide tools to the server.")
+        print("  They may need a newer version with integration support.")
+        print()
+
     # Cleanup old processes
     print("\nCleaning up old processes...")
     if kill_cloudflared_processes():
@@ -1302,6 +1311,100 @@ def cmd_remove(name: str):
         sys.exit(1)
 
 
+def _check_integration_support(package_name: str, submodule_path: Path) -> bool:
+    """Check if a module has integration support for robotmcp-server.
+
+    Returns True if the module has one of:
+    - <package>/integration.py with register() function
+    - <package>/tools/__init__.py with register_all_tools()
+    - [tool.mcp.integration] section in pyproject.toml
+    """
+    import importlib
+
+    # Normalize package name
+    pkg_name = package_name.replace("-", "_")
+
+    # Add submodule to path temporarily
+    submodule_str = str(submodule_path)
+    added_to_path = False
+    if submodule_str not in sys.path:
+        sys.path.insert(0, submodule_str)
+        added_to_path = True
+
+    try:
+        # Check for integration module
+        try:
+            integration_mod = importlib.import_module(f"{pkg_name}.integration")
+            if hasattr(integration_mod, "register"):
+                return True
+        except ImportError:
+            pass
+
+        # Check for tools module
+        try:
+            tools_mod = importlib.import_module(f"{pkg_name}.tools")
+            if hasattr(tools_mod, "register_all_tools"):
+                return True
+        except ImportError:
+            pass
+
+        # Check pyproject.toml for [tool.mcp.integration]
+        pyproject_path = submodule_path / "pyproject.toml"
+        if pyproject_path.exists():
+            try:
+                try:
+                    import tomllib
+                except ImportError:
+                    import tomli as tomllib
+                with open(pyproject_path, "rb") as f:
+                    data = tomllib.load(f)
+                if data.get("tool", {}).get("mcp", {}).get("integration", {}).get("register_function"):
+                    return True
+            except Exception:
+                pass
+
+        return False
+    finally:
+        if added_to_path:
+            sys.path.remove(submodule_str)
+
+
+def check_modules_compatibility(verbose: bool = True) -> dict:
+    """Check compatibility of all installed MCP server modules.
+
+    Returns:
+        Dict with 'compatible' and 'incompatible' lists of module names.
+    """
+    package_dir = Path(__file__).parent.resolve()
+    result = {"compatible": [], "incompatible": []}
+
+    submodules = parse_gitmodules(package_dir)
+    if not submodules:
+        return result
+
+    for submodule in submodules:
+        submodule_path = package_dir / submodule["path"]
+        pyproject_path = submodule_path / "pyproject.toml"
+
+        if not submodule_path.exists() or not pyproject_path.exists():
+            continue
+
+        package_name = get_package_name_from_pyproject(pyproject_path)
+        if not package_name or not is_package_installed(package_name):
+            continue
+
+        if _check_integration_support(package_name, submodule_path):
+            result["compatible"].append(submodule["name"])
+            if verbose:
+                print(f"  [OK] {submodule['name']}: compatible")
+        else:
+            result["incompatible"].append(submodule["name"])
+            if verbose:
+                print(f"  [!!] {submodule['name']}: not compatible (no integration module)")
+
+    return result
+
+
 def cmd_list():
     """List installed MCP server modules (git submodules)."""
     import configparser
@@ -1349,21 +1452,30 @@ def cmd_list():
         submodule_path = package_dir / mod["path"]
         pyproject_path = submodule_path / "pyproject.toml"
 
-        # Determine status
+        # Determine installation status
         if not submodule_path.exists():
             status = "not initialized"
             package_name = None
+            compatible = False
         elif not pyproject_path.exists():
             status = "no pyproject.toml"
             package_name = None
+            compatible = False
         else:
             package_name = get_package_name_from_pyproject(pyproject_path)
             if package_name and is_package_installed(package_name):
-                status = "installed"
+                # Check integration support
+                compatible = _check_integration_support(package_name, submodule_path)
+                if compatible:
+                    status = "installed"
+                else:
+                    status = "installed (not compatible)"
             elif package_name:
                 status = "not installed"
+                compatible = False
             else:
                 status = "unknown"
+                compatible = False
 
         print()
         print(f"  {mod['name']}")
@@ -1385,6 +1497,109 @@ def cmd_list():
     print()
 
 
+def cmd_list_tools():
+    """List all available MCP tools from installed modules."""
+    import asyncio
+
+    package_dir = Path(__file__).parent.resolve()
+
+    # Check if any modules are installed
+    gitmodules_path = package_dir / ".gitmodules"
+    if not gitmodules_path.exists():
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    print()
+    print("Discovering tools from installed modules...")
+    print()
+
+    try:
+        # Import here to avoid loading FastMCP for other commands
+        from fastmcp import FastMCP
+        from submodule_integration import register_all_submodules
+
+        # Create temporary MCP instance
+        mcp = FastMCP("robotmcp-server")
+
+        # Register all submodules (this discovers tools)
+        results = register_all_submodules(mcp)
+
+        # Show module registration status
+        print("Module Status:")
+        print("-" * 70)
+        compatible_modules = []
+        incompatible_modules = []
+        for module_name, status in results.items():
+            if status.get("tools") or status.get("resources") or status.get("prompts"):
+                compatible_modules.append(module_name)
+                print(f"  {module_name}: compatible")
+            else:
+                incompatible_modules.append(module_name)
+                print(f"  {module_name}: not compatible (no integration module)")
+        print()
+
+        # Get tools async
+        async def get_all_tools():
+            return await mcp.get_tools()
+
+        tools = asyncio.run(get_all_tools())
+
+        if not tools:
+            print("No tools found.")
+            print()
+            if incompatible_modules:
+                print("Some modules are not compatible:")
+                for mod in incompatible_modules:
+                    print(f"  - {mod}: missing integration module")
+                print()
+                print("Compatible modules need one of:")
+                print("  - <package>/integration.py with register(mcp) function")
+                print("  - <package>/tools/__init__.py with register_all_tools(mcp)")
+                print("  - [tool.mcp.integration] section in pyproject.toml")
+            return
+
+        print(f"Available Tools ({len(tools)}):")
+        print("=" * 70)
+
+        # Group by prefix (e.g., ros_*, file_*, etc.)
+        grouped = {}
+        for name, tool in sorted(tools.items()):
+            prefix = name.split("_")[0] if "_" in name else "other"
+            if prefix not in grouped:
+                grouped[prefix] = []
+            grouped[prefix].append((name, tool))
+
+        for prefix, tool_list in sorted(grouped.items()):
+            print()
+            print(f"  [{prefix}] ({len(tool_list)} tools)")
+            for name, tool in tool_list:
+                desc = tool.description or "No description"
+                # Truncate long descriptions
+                if len(desc) > 50:
+                    desc = desc[:47] + "..."
+                print(f"    {name}")
+                print(f"      {desc}")
+
+        print()
+        print("=" * 70)
+        print(f"Total: {len(tools)} tools from {len(compatible_modules)} module(s)")
+        if incompatible_modules:
+            print(f"Note: {len(incompatible_modules)} module(s) not compatible: {', '.join(incompatible_modules)}")
+        print()
+
+    except ImportError as e:
+        print(f"[ERROR] Failed to import required modules: {e}")
+        print("  Make sure dependencies are installed:")
+        print("  pip install -e .")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Failed to discover tools: {e}")
+        sys.exit(1)
+
+
 def cmd_help():
     """Show detailed help."""
     print("""
@@ -1403,6 +1618,7 @@ COMMANDS:
     login       Log in to RobotMCP (browser OAuth)
     logout      Log out and clear stored credentials
     list        List installed MCP server modules
+    list-tools  List all available MCP tools
     add         Add an MCP server module (git submodule)
     remove      Remove an MCP server module (git submodule)
     version     Show version information
@@ -1427,6 +1643,9 @@ EXAMPLES:
 
     # List installed MCP server modules
     robotmcp-server list
+
+    # List all available MCP tools
+    robotmcp-server list-tools
 
     # Add an MCP server module
     robotmcp-server add https://github.com/robotmcp/ros-mcp-server
@@ -1471,8 +1690,8 @@ def main():
 Examples:
   robotmcp-server start
   robotmcp-server status
-  robotmcp-server stop
   robotmcp-server list
+  robotmcp-server list-tools
   robotmcp-server add https://github.com/robotmcp/ros-mcp-server
   robotmcp-server remove ros-mcp-server
 """,
@@ -1496,6 +1715,7 @@ Examples:
     subparsers.add_parser("login", help="Log in to RobotMCP (browser OAuth)")
     subparsers.add_parser("logout", help="Log out and clear stored credentials")
     subparsers.add_parser("list", help="List installed MCP server modules")
+    subparsers.add_parser("list-tools", help="List all available MCP tools")
     subparsers.add_parser("version", help="Show version information")
     subparsers.add_parser("help", help="Show detailed help message")
 
@@ -1554,6 +1774,8 @@ Examples:
         cmd_logout()
     elif args.command == "list":
         cmd_list()
+    elif args.command == "list-tools":
+        cmd_list_tools()
     elif args.command == "verify":
         cmd_verify()
     elif args.command == "version":
