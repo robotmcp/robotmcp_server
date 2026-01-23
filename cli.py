@@ -22,7 +22,12 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from config import load_config, clear_config, CONFIG_FILE
-from submodule_deps import ensure_submodule_deps
+from submodule_deps import (
+    ensure_submodule_deps,
+    parse_gitmodules,
+    get_package_name_from_pyproject,
+    is_package_installed,
+)
 
 # Load environment: .env (local override) or .env.public (bundled defaults)
 _env_file = Path(".env")
@@ -1112,12 +1117,49 @@ def cmd_add(repo_url: str, branch: str | None = None):
     # Check if already exists
     submodule_path = package_dir / repo_name
     if submodule_path.exists():
-        print(f"[ERROR] Directory already exists: {submodule_path}")
-        print(f"  Remove it first: rm -rf {submodule_path}")
-        sys.exit(1)
+        print(f"Module '{repo_name}' already exists.")
+        try:
+            response = input("Remove and reinstall? [y/N]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            sys.exit(1)
+
+        if response != "y":
+            print("Cancelled.")
+            sys.exit(0)
+
+        # Remove existing module
+        print()
+        print(f"Removing existing module...")
+
+        # Deinitialize
+        subprocess.run(
+            ["git", "submodule", "deinit", "-f", repo_name],
+            cwd=package_dir,
+            capture_output=True,
+        )
+
+        # Remove from git index
+        subprocess.run(
+            ["git", "rm", "-f", repo_name],
+            cwd=package_dir,
+            capture_output=True,
+        )
+
+        # Remove .git/modules cache
+        git_modules_path = package_dir / ".git" / "modules" / repo_name
+        if git_modules_path.exists():
+            shutil.rmtree(git_modules_path)
+
+        # Remove directory if still exists
+        if submodule_path.exists():
+            shutil.rmtree(submodule_path)
+
+        print("Existing module removed.")
+        print()
 
     # Build git submodule add command
-    cmd = ["git", "submodule", "add"]
+    cmd = ["git", "submodule", "add", "--progress"]
     if branch:
         cmd.extend(["-b", branch])
     cmd.append(repo_url)
@@ -1131,28 +1173,25 @@ def cmd_add(repo_url: str, branch: str | None = None):
     print()
 
     try:
+        # Don't capture output so user can see progress and enter credentials if needed
         result = subprocess.run(
             cmd,
             cwd=package_dir,
-            capture_output=True,
-            text=True,
         )
 
         if result.returncode != 0:
-            print("[ERROR] Failed to add submodule:")
-            if result.stderr:
-                print(f"  {result.stderr.strip()}")
+            print("[ERROR] Failed to add submodule")
             sys.exit(1)
 
+        print()
         print("Submodule added successfully!")
         print()
 
         # Initialize and update the submodule
         print("Initializing submodule...")
         subprocess.run(
-            ["git", "submodule", "update", "--init", "--recursive", repo_name],
+            ["git", "submodule", "update", "--init", "--recursive", "--progress", repo_name],
             cwd=package_dir,
-            check=True,
         )
 
         # Check if submodule has pyproject.toml (indicates it's a Python package)
@@ -1243,6 +1282,11 @@ def cmd_remove(name: str):
             print("Removing cached module data...")
             shutil.rmtree(git_modules_path)
 
+        # Step 4: Remove the submodule directory if it still exists
+        if submodule_path.exists():
+            print("Removing submodule directory...")
+            shutil.rmtree(submodule_path)
+
         print()
         print(f"Submodule '{name}' removed successfully!")
         print()
@@ -1256,6 +1300,89 @@ def cmd_remove(name: str):
     except Exception as e:
         print(f"[ERROR] Unexpected error: {e}")
         sys.exit(1)
+
+
+def cmd_list():
+    """List installed MCP server modules (git submodules)."""
+    import configparser
+
+    package_dir = Path(__file__).parent.resolve()
+    gitmodules_path = package_dir / ".gitmodules"
+
+    if not gitmodules_path.exists():
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    # Parse .gitmodules to get full info (including URL and branch)
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+
+    modules = []
+    for section in config.sections():
+        if section.startswith('submodule "') and section.endswith('"'):
+            name = section[len('submodule "'):-1]
+            path = config.get(section, "path", fallback=name)
+            url = config.get(section, "url", fallback="")
+            branch = config.get(section, "branch", fallback=None)
+            modules.append({
+                "name": name,
+                "path": path,
+                "url": url,
+                "branch": branch,
+            })
+
+    if not modules:
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    print()
+    print(f"MCP Server Modules ({len(modules)}):")
+    print("=" * 70)
+
+    for mod in modules:
+        submodule_path = package_dir / mod["path"]
+        pyproject_path = submodule_path / "pyproject.toml"
+
+        # Determine status
+        if not submodule_path.exists():
+            status = "not initialized"
+            package_name = None
+        elif not pyproject_path.exists():
+            status = "no pyproject.toml"
+            package_name = None
+        else:
+            package_name = get_package_name_from_pyproject(pyproject_path)
+            if package_name and is_package_installed(package_name):
+                status = "installed"
+            elif package_name:
+                status = "not installed"
+            else:
+                status = "unknown"
+
+        print()
+        print(f"  {mod['name']}")
+        print(f"    Path:    {mod['path']}")
+        if mod["url"]:
+            print(f"    URL:     {mod['url']}")
+        if mod["branch"]:
+            print(f"    Branch:  {mod['branch']}")
+        if package_name:
+            print(f"    Package: {package_name}")
+        print(f"    Status:  {status}")
+
+    print()
+    print("=" * 70)
+    print()
+    print("Commands:")
+    print("  robotmcp-server add <url>     Add a module")
+    print("  robotmcp-server remove <name> Remove a module")
+    print()
 
 
 def cmd_help():
@@ -1275,6 +1402,7 @@ COMMANDS:
     verify      Test tunnel connectivity and endpoints
     login       Log in to RobotMCP (browser OAuth)
     logout      Log out and clear stored credentials
+    list        List installed MCP server modules
     add         Add an MCP server module (git submodule)
     remove      Remove an MCP server module (git submodule)
     version     Show version information
@@ -1296,6 +1424,9 @@ EXAMPLES:
 
     # Stop the server
     robotmcp-server stop
+
+    # List installed MCP server modules
+    robotmcp-server list
 
     # Add an MCP server module
     robotmcp-server add https://github.com/robotmcp/ros-mcp-server
@@ -1341,8 +1472,8 @@ Examples:
   robotmcp-server start
   robotmcp-server status
   robotmcp-server stop
+  robotmcp-server list
   robotmcp-server add https://github.com/robotmcp/ros-mcp-server
-  robotmcp-server add -b main https://github.com/robotmcp/ros-mcp-server
   robotmcp-server remove ros-mcp-server
 """,
     )
@@ -1364,6 +1495,7 @@ Examples:
     subparsers.add_parser("verify", help="Test tunnel connectivity and endpoints")
     subparsers.add_parser("login", help="Log in to RobotMCP (browser OAuth)")
     subparsers.add_parser("logout", help="Log out and clear stored credentials")
+    subparsers.add_parser("list", help="List installed MCP server modules")
     subparsers.add_parser("version", help="Show version information")
     subparsers.add_parser("help", help="Show detailed help message")
 
@@ -1420,6 +1552,8 @@ Examples:
         cmd_login()
     elif args.command == "logout":
         cmd_logout()
+    elif args.command == "list":
+        cmd_list()
     elif args.command == "verify":
         cmd_verify()
     elif args.command == "version":
