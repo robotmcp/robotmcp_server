@@ -68,7 +68,8 @@
       "Bash(grep:*)",
       "Bash(find:*)",
       "Bash(ruff check:*)",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(ty check:*)"
     ]
   }
 }
