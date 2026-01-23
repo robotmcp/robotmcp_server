@@ -67,7 +67,8 @@
       "Bash(pipx runpip:*)",
       "Bash(grep:*)",
       "Bash(find:*)",
-      "Bash(ruff check:*)"
+      "Bash(ruff check:*)",
+      "Bash(python3:*)"
     ]
   }
 }
