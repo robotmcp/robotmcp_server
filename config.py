@@ -1,11 +1,12 @@
-"""Config management for simple-mcp-server."""
+"""Config management for robotmcp-server."""
+
 import json
 import os
 from pathlib import Path
 from typing import Optional
 
 
-CONFIG_DIR = Path.home() / ".simple-mcp-server"
+CONFIG_DIR = Path.home() / ".robotmcp-server"
 CONFIG_FILE = CONFIG_DIR / "config.json"
 
 
@@ -65,7 +66,9 @@ def load_config() -> Config:
         return Config()
 
 
-def save_config(user_id: str, email: str, access_token: str, refresh_token: str = None) -> None:
+def save_config(
+    user_id: str, email: str, access_token: str, refresh_token: str = None
+) -> None:
     """Save config to file."""
     CONFIG_DIR.mkdir(parents=True, exist_ok=True)
 

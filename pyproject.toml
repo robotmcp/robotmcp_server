@@ -3,8 +3,8 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "simple-mcp-server"
-version = "1.16.2"
+name = "robotmcp-server"
+version = "2.0.0"
 description = "Modular MCP server with Streamable HTTP, optional OAuth 2.1, Supabase auth, Cloudflare tunnel, and creator-only access control"
 readme = "README.md"
 license = {text = "Proprietary - Copyright (c) 2025 Contoro. All rights reserved."}
@@ -33,11 +33,11 @@ dependencies = [
 ]
 
 [project.scripts]
-simple-mcp-server = "cli:main"
+robotmcp-server = "cli:main"
 
 [project.urls]
-Homepage = "https://github.com/mokcontoro/simple_mcp_server"
-Repository = "https://github.com/mokcontoro/simple_mcp_server"
+Homepage = "https://github.com/robotmcp/robotmcp_server"
+Repository = "https://github.com/robotmcp/robotmcp_server"
 
 [tool.hatch.build.targets.wheel]
 packages = ["."]

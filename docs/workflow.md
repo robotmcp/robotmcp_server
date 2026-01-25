@@ -1,4 +1,4 @@
-# Workflow: simple-mcp-server
+# Workflow: robotmcp-server
 
 **Copyright (c) 2025 Contoro. All rights reserved.**
 
@@ -21,7 +21,7 @@
 ```
 User                CLI              robotmcp-cloud       Supabase
  │                   │               (app.robotmcp.ai)        │
- │ simple-mcp-server │                    │                    │
+ │ robotmcp-server │                    │                    │
  │──────────────────>│                    │                    │
  │                   │ Open browser       │                    │
  │                   │───────────────────>│                    │
@@ -65,10 +65,10 @@ MCP Client          Cloudflare          Local Server        Supabase
 ## CLI Commands
 
 ```bash
-simple-mcp-server           # Start (auto-setup on first run)
-simple-mcp-server stop      # Stop server
-simple-mcp-server status    # Show status
-simple-mcp-server logout    # Clear credentials
+robotmcp-server           # Start (auto-setup on first run)
+robotmcp-server stop      # Stop server
+robotmcp-server status    # Show status
+robotmcp-server logout    # Clear credentials
 ```
 
 ---

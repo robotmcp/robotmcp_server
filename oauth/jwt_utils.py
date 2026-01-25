@@ -21,13 +21,13 @@ REFRESH_TOKEN_EXPIRE_SECONDS = 30 * 24 * 60 * 60  # 30 days
 
 # Secret key storage
 _jwt_secret: Optional[str] = None
-SECRET_FILE = Path.home() / ".simple-mcp-server" / "jwt_secret"
+SECRET_FILE = Path.home() / ".robotmcp-server" / "jwt_secret"
 
 
 def _get_or_create_secret() -> str:
     """Get JWT secret from file, or create one if it doesn't exist.
 
-    The secret is stored in ~/.simple-mcp-server/jwt_secret
+    The secret is stored in ~/.robotmcp-server/jwt_secret
     This ensures tokens remain valid across server restarts.
     """
     global _jwt_secret
@@ -73,7 +73,7 @@ def create_access_token(
     client_id: str,
     scope: str,
     issuer: str,
-    expires_in: int = ACCESS_TOKEN_EXPIRE_SECONDS
+    expires_in: int = ACCESS_TOKEN_EXPIRE_SECONDS,
 ) -> str:
     """Create a JWT access token.
 
@@ -94,14 +94,14 @@ def create_access_token(
     now = int(time.time())
 
     payload = {
-        "sub": user_id,           # Subject (user ID) - standard claim
-        "email": user_email,       # User email
-        "client_id": client_id,    # OAuth client
-        "scope": scope,            # OAuth scope
-        "iss": issuer,             # Issuer - standard claim
-        "iat": now,                # Issued at - standard claim
-        "exp": now + expires_in,   # Expiration - standard claim
-        "type": "access"           # Token type
+        "sub": user_id,  # Subject (user ID) - standard claim
+        "email": user_email,  # User email
+        "client_id": client_id,  # OAuth client
+        "scope": scope,  # OAuth scope
+        "iss": issuer,  # Issuer - standard claim
+        "iat": now,  # Issued at - standard claim
+        "exp": now + expires_in,  # Expiration - standard claim
+        "type": "access",  # Token type
     }
 
     token = jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
@@ -114,7 +114,7 @@ def create_refresh_token(
     client_id: str,
     scope: str,
     issuer: str,
-    expires_in: int = REFRESH_TOKEN_EXPIRE_SECONDS
+    expires_in: int = REFRESH_TOKEN_EXPIRE_SECONDS,
 ) -> str:
     """Create a JWT refresh token.
 
@@ -135,14 +135,14 @@ def create_refresh_token(
     now = int(time.time())
 
     payload = {
-        "sub": user_id,            # Subject (user ID)
-        "email": user_email,       # User email
-        "client_id": client_id,    # OAuth client
-        "scope": scope,            # OAuth scope
-        "iss": issuer,             # Issuer
-        "iat": now,                # Issued at
-        "exp": now + expires_in,   # Expiration
-        "type": "refresh"          # Token type
+        "sub": user_id,  # Subject (user ID)
+        "email": user_email,  # User email
+        "client_id": client_id,  # OAuth client
+        "scope": scope,  # OAuth scope
+        "iss": issuer,  # Issuer
+        "iat": now,  # Issued at
+        "exp": now + expires_in,  # Expiration
+        "type": "refresh",  # Token type
     }
 
     token = jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
@@ -170,14 +170,11 @@ def verify_access_token(token: str, issuer: str = None) -> Optional[dict]:
                 secret,
                 algorithms=[JWT_ALGORITHM],
                 options=options,
-                issuer=issuer
+                issuer=issuer,
             )
         else:
             payload = jwt.decode(
-                token,
-                secret,
-                algorithms=[JWT_ALGORITHM],
-                options=options
+                token, secret, algorithms=[JWT_ALGORITHM], options=options
             )
 
         # Verify it's an access token
@@ -215,14 +212,11 @@ def verify_refresh_token(token: str, issuer: str = None) -> Optional[dict]:
                 secret,
                 algorithms=[JWT_ALGORITHM],
                 options=options,
-                issuer=issuer
+                issuer=issuer,
             )
         else:
             payload = jwt.decode(
-                token,
-                secret,
-                algorithms=[JWT_ALGORITHM],
-                options=options
+                token, secret, algorithms=[JWT_ALGORITHM], options=options
             )
 
         # Verify it's a refresh token

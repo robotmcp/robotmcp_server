@@ -1,4 +1,4 @@
-# Project Plan: simple-mcp-server
+# Project Plan: robotmcp-server
 
 **Copyright (c) 2025 Contoro. All rights reserved.**
 
@@ -34,11 +34,11 @@
 ## Module Structure
 
 ```
-simple_mcp_server/
+robotmcp_server/
 ├── main.py              # FastAPI app entry
 ├── tools.py             # MCP tools (echo, ping) - replace for custom tools
 ├── cli.py               # CLI daemon management
-├── config.py            # Config management (~/.simple-mcp-server/)
+├── config.py            # Config management (~/.robotmcp-server/)
 ├── setup.py             # Browser login flow (uses app.robotmcp.ai)
 ├── sse.py               # Legacy SSE endpoints
 └── oauth/               # OAuth module (optional)
@@ -77,6 +77,17 @@ simple_mcp_server/
 | 1.3.0 | Creator-only access control |
 | 1.2.0 | CLI login, tunnel setup |
 | 1.0.0 | Initial release |
+
+---
+
+## Submodule Integration
+
+The server auto-discovers MCP tools from git submodules. See [docs/submodule-integration.md](submodule-integration.md) for the full guide.
+
+**Discovery methods (in order of precedence):**
+1. Custom `register_function` in pyproject.toml
+2. `<package>/integration.py` with `register(mcp, **kwargs)` (recommended)
+3. Convention-based: `tools/`, `resources/`, `prompts/` with `register_all_*()` functions
 
 ---
 

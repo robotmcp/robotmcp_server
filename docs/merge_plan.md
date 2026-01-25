@@ -2,10 +2,10 @@
 
 ## Goal
 
-Integrate **ros-mcp-server** (open source) into **simple_mcp_server** (proprietary) using git submodule approach.
+Integrate **ros-mcp-server** (open source) into **robotmcp_server** (proprietary) using git submodule approach.
 
 - ros-mcp-server: Apache 2.0 licensed, ROS MCP tools
-- simple_mcp_server: Proprietary, OAuth + Cloudflare tunnel infrastructure
+- robotmcp_server: Proprietary, OAuth + Cloudflare tunnel infrastructure
 
 ## Approach: Refactor-to-Library + Submodule
 
@@ -26,7 +26,7 @@ ros-mcp-server/
 
 **Key**: Create `register_ros_tools(mcp, rosbridge_ip, rosbridge_port)` function that registers all tools.
 
-### Phase 2: Integrate into simple_mcp_server
+### Phase 2: Integrate into robotmcp_server
 
 1. Add submodule:
    ```bash
@@ -45,7 +45,7 @@ ros-mcp-server/
    from fastmcp import FastMCP
    from ros_integration import register_ros_tools
 
-   mcp = FastMCP("simple-mcp-server")
+   mcp = FastMCP("robotmcp-server")
    register_ros_tools(mcp, rosbridge_ip, rosbridge_port)
    # ... OAuth middleware + FastAPI
    ```

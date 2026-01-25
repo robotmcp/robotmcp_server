@@ -7,14 +7,12 @@ This module provides:
 """
 
 import atexit
-import json
 import logging
 import os
 import re
 import sys
 import threading
 import time
-from datetime import datetime, timezone
 from queue import Queue, Empty
 from typing import Optional
 
@@ -31,7 +29,7 @@ class JSONFormatter(logging.Formatter):
         # Extract tag from message if present: [TAG] message
         tag = None
         message = record.getMessage()
-        tag_match = re.match(r'\[([A-Z_]+)\]\s*(.*)', message)
+        tag_match = re.match(r"\[([A-Z_]+)\]\s*(.*)", message)
         if tag_match:
             tag = tag_match.group(1)
             message = tag_match.group(2)
@@ -47,7 +45,7 @@ class JSONFormatter(logging.Formatter):
             "extra": {
                 "function": record.funcName,
                 "line": record.lineno,
-            }
+            },
         }
 
         # Add exception info if present
@@ -62,8 +60,7 @@ class PlainFormatter(logging.Formatter):
 
     def __init__(self):
         super().__init__(
-            fmt='%(asctime)s [%(levelname)s] %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
+            fmt="%(asctime)s [%(levelname)s] %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
         )
 
 
@@ -81,10 +78,18 @@ class SupabaseFilter(logging.Filter):
     """
 
     # Modules to exclude (library noise)
-    EXCLUDED_MODULES = {'_client', 'server', 'streamable_http_manager'}
+    EXCLUDED_MODULES = {"_client", "server", "streamable_http_manager"}
 
     # Tags we want to keep (business events)
-    ALLOWED_TAGS = {'TOOL', 'LOGIN', 'CONSENT', 'REGISTER', 'TOKEN', 'AUTHORIZE', 'STARTUP'}
+    ALLOWED_TAGS = {
+        "TOOL",
+        "LOGIN",
+        "CONSENT",
+        "REGISTER",
+        "TOKEN",
+        "AUTHORIZE",
+        "STARTUP",
+    }
 
     def filter(self, record: logging.LogRecord) -> bool:
         # Always allow WARNING and above
@@ -97,11 +102,11 @@ class SupabaseFilter(logging.Filter):
 
         # Check for tag in message
         message = record.getMessage()
-        tag_match = re.match(r'\[([A-Z_]+)\]', message)
+        tag_match = re.match(r"\[([A-Z_]+)\]", message)
         if tag_match:
             tag = tag_match.group(1)
             # Skip AUTH "Request authorized" (too noisy - logs every request)
-            if tag == 'AUTH' and 'Request authorized' in message:
+            if tag == "AUTH" and "Request authorized" in message:
                 return False
             return tag in self.ALLOWED_TAGS
 
@@ -153,7 +158,7 @@ class SupabaseHandler(logging.Handler):
                     "tag": None,
                     "message": record.getMessage(),
                     "module": record.module,
-                    "extra": {}
+                    "extra": {},
                 }
 
             self._queue.put(log_entry)
@@ -203,7 +208,7 @@ _supabase_handler: Optional[SupabaseHandler] = None
 def setup_logging(
     robot_name: str = None,
     user_id: str = None,
-    supabase_client = None,
+    supabase_client=None,
 ) -> logging.Logger:
     """Configure logging with optional Supabase integration.
 
