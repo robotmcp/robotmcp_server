@@ -1811,6 +1811,125 @@ def cmd_update():
     print()
 
 
+def cmd_repair():
+    """Repair MCP server modules (re-init missing submodules, check integrity)."""
+    import configparser
+
+    package_dir = Path(__file__).parent.resolve()
+    gitmodules_path = package_dir / ".gitmodules"
+
+    if not gitmodules_path.exists():
+        print("No MCP server modules configured.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    # Parse .gitmodules to get all modules
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+
+    modules = []
+    for section in config.sections():
+        if section.startswith('submodule "') and section.endswith('"'):
+            name = section[len('submodule "'):-1]
+            path = config.get(section, "path", fallback=name)
+            modules.append({"name": name, "path": path})
+
+    if not modules:
+        print("No MCP server modules configured.")
+        return
+
+    print()
+    print(f"Checking {len(modules)} module(s)...")
+    print("=" * 70)
+
+    ok_count = 0
+    fixed_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for mod in modules:
+        module_name = mod["name"]
+        module_path = package_dir / mod["path"]
+        git_file = module_path / ".git"
+
+        print()
+        print(f"  {module_name}:")
+
+        # Check if folder exists and is properly initialized
+        if module_path.exists() and git_file.exists():
+            # Check if dirty
+            git_status = _get_submodule_git_status(module_path)
+            if git_status["dirty"] or git_status["untracked"] > 0:
+                print("    [OK] Initialized (has local changes)")
+            else:
+                print("    [OK] Initialized")
+            ok_count += 1
+            continue
+
+        # Folder missing or not properly initialized - check if dirty first
+        if module_path.exists():
+            git_status = _get_submodule_git_status(module_path)
+            if git_status["dirty"]:
+                print("    [SKIP] Folder exists with uncommitted changes")
+                print("           Commit or stash changes first, then retry")
+                skipped_count += 1
+                continue
+            if git_status["untracked"] > 0:
+                print(f"    [SKIP] Folder exists with {git_status['untracked']} untracked file(s)")
+                print("           Remove or commit files first, then retry")
+                skipped_count += 1
+                continue
+
+        # Try to re-initialize
+        print("    Initializing...")
+        try:
+            result = subprocess.run(
+                ["git", "submodule", "update", "--init", mod["path"]],
+                cwd=package_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0:
+                print("    [FIXED] Re-initialized successfully")
+                fixed_count += 1
+            else:
+                print("    [ERROR] Failed to initialize")
+                if result.stderr:
+                    for line in result.stderr.strip().split("\n")[:3]:
+                        print(f"      {line}")
+                failed_count += 1
+
+        except Exception as e:
+            print(f"    [ERROR] {e}")
+            failed_count += 1
+
+    # Summary
+    print()
+    print("=" * 70)
+    print()
+    print("Summary:")
+    if ok_count:
+        print(f"  OK:      {ok_count} module(s)")
+    if fixed_count:
+        print(f"  Fixed:   {fixed_count} module(s)")
+    if skipped_count:
+        print(f"  Skipped: {skipped_count} module(s) (have local changes)")
+    if failed_count:
+        print(f"  Failed:  {failed_count} module(s)")
+
+    if fixed_count > 0:
+        print()
+        print("Repair complete. You may need to reinstall packages:")
+        print("  uv pip install -e <module-path>")
+    elif skipped_count == 0 and failed_count == 0:
+        print()
+        print("All modules OK. Nothing to repair.")
+    print()
+
+
 def cmd_help():
     """Show detailed help."""
     print("""
@@ -1933,6 +2052,7 @@ Examples:
     subparsers.add_parser("list", help="List installed MCP server modules")
     subparsers.add_parser("list-tools", help="List all available MCP tools")
     subparsers.add_parser("update", help="Update all MCP server modules to latest")
+    subparsers.add_parser("repair", help="Repair modules (re-init missing submodules)")
     subparsers.add_parser("version", help="Show version information")
     subparsers.add_parser("help", help="Show detailed help message")
 
@@ -1995,6 +2115,8 @@ Examples:
         cmd_list_tools()
     elif args.command == "update":
         cmd_update()
+    elif args.command == "repair":
+        cmd_repair()
     elif args.command == "verify":
         cmd_verify()
     elif args.command == "version":
