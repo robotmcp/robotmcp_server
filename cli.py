@@ -1494,6 +1494,7 @@ def cmd_list():
     print("Commands:")
     print("  robotmcp-server add <url>     Add a module")
     print("  robotmcp-server remove <name> Remove a module")
+    print("  robotmcp-server update        Update all modules")
     print()
 
 
@@ -1600,6 +1601,131 @@ def cmd_list_tools():
         sys.exit(1)
 
 
+def cmd_update():
+    """Update all MCP server modules to their latest commits."""
+    import configparser
+
+    package_dir = Path(__file__).parent.resolve()
+    gitmodules_path = package_dir / ".gitmodules"
+
+    if not gitmodules_path.exists():
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    # Parse .gitmodules to get all modules
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+
+    modules = []
+    for section in config.sections():
+        if section.startswith('submodule "') and section.endswith('"'):
+            name = section[len('submodule "'):-1]
+            path = config.get(section, "path", fallback=name)
+            branch = config.get(section, "branch", fallback=None)
+            modules.append({
+                "name": name,
+                "path": path,
+                "branch": branch,
+            })
+
+    if not modules:
+        print("No MCP server modules installed.")
+        return
+
+    print()
+    print(f"Updating {len(modules)} module(s)...")
+    print("=" * 70)
+
+    updated = []
+    failed = []
+    unchanged = []
+
+    for mod in modules:
+        module_name = mod["name"]
+        module_path = package_dir / mod["path"]
+
+        print()
+        print(f"  Updating {module_name}...")
+
+        if not module_path.exists():
+            print(f"    [SKIP] Module directory does not exist")
+            print(f"    Run: git submodule update --init {module_name}")
+            failed.append(module_name)
+            continue
+
+        # Get current commit hash before update
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=module_path,
+                capture_output=True,
+                text=True,
+            )
+            old_commit = result.stdout.strip()[:8] if result.returncode == 0 else None
+        except Exception:
+            old_commit = None
+
+        # Update the submodule to latest remote commit
+        try:
+            result = subprocess.run(
+                ["git", "submodule", "update", "--remote", "--merge", mod["path"]],
+                cwd=package_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                print(f"    [ERROR] Update failed")
+                if result.stderr:
+                    for line in result.stderr.strip().split("\n")[:3]:
+                        print(f"      {line}")
+                failed.append(module_name)
+                continue
+
+            # Get new commit hash after update
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=module_path,
+                capture_output=True,
+                text=True,
+            )
+            new_commit = result.stdout.strip()[:8] if result.returncode == 0 else None
+
+            if old_commit and new_commit and old_commit != new_commit:
+                print(f"    [OK] Updated: {old_commit} -> {new_commit}")
+                updated.append(module_name)
+            else:
+                print(f"    [OK] Already up to date")
+                unchanged.append(module_name)
+
+        except Exception as e:
+            print(f"    [ERROR] {e}")
+            failed.append(module_name)
+
+    # Summary
+    print()
+    print("=" * 70)
+    print()
+    print("Summary:")
+    if updated:
+        print(f"  Updated:   {len(updated)} module(s) - {', '.join(updated)}")
+    if unchanged:
+        print(f"  Unchanged: {len(unchanged)} module(s)")
+    if failed:
+        print(f"  Failed:    {len(failed)} module(s) - {', '.join(failed)}")
+
+    if updated:
+        print()
+        print("Next steps:")
+        print("  1. Review changes: git diff")
+        print("  2. Commit the update: git add . && git commit -m 'Update submodules'")
+        print("  3. Restart the server: robotmcp-server restart")
+    print()
+
+
 def cmd_help():
     """Show detailed help."""
     print("""
@@ -1621,6 +1747,7 @@ COMMANDS:
     list-tools  List all available MCP tools
     add         Add an MCP server module (git submodule)
     remove      Remove an MCP server module (git submodule)
+    update      Update all MCP server modules to latest
     version     Show version information
     help        Show this help message
 
@@ -1655,6 +1782,9 @@ EXAMPLES:
 
     # Remove an MCP server module
     robotmcp-server remove ros-mcp-server
+
+    # Update all MCP server modules to latest
+    robotmcp-server update
 
     # View logs
     tail -f ~/.robotmcp-server/server.log
@@ -1694,6 +1824,7 @@ Examples:
   robotmcp-server list-tools
   robotmcp-server add https://github.com/robotmcp/ros-mcp-server
   robotmcp-server remove ros-mcp-server
+  robotmcp-server update
 """,
     )
 
@@ -1716,6 +1847,7 @@ Examples:
     subparsers.add_parser("logout", help="Log out and clear stored credentials")
     subparsers.add_parser("list", help="List installed MCP server modules")
     subparsers.add_parser("list-tools", help="List all available MCP tools")
+    subparsers.add_parser("update", help="Update all MCP server modules to latest")
     subparsers.add_parser("version", help="Show version information")
     subparsers.add_parser("help", help="Show detailed help message")
 
@@ -1776,6 +1908,8 @@ Examples:
         cmd_list()
     elif args.command == "list-tools":
         cmd_list_tools()
+    elif args.command == "update":
+        cmd_update()
     elif args.command == "verify":
         cmd_verify()
     elif args.command == "version":

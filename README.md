@@ -66,6 +66,7 @@ See [docs/project_plan.md](docs/project_plan.md) for architecture details.
 | `robotmcp-server list-tools` | List all available MCP tools from compatible modules |
 | `robotmcp-server add <url>` | Add an MCP server module (git submodule) |
 | `robotmcp-server remove <name>` | Remove an MCP server module |
+| `robotmcp-server update` | Update all MCP server modules to latest |
 | `robotmcp-server logout` | Clear credentials and stop |
 
 ### Verification Command
@@ -148,6 +149,9 @@ robotmcp-server list
 
 # List all available tools
 robotmcp-server list-tools
+
+# Update all modules to latest
+robotmcp-server update
 
 # Remove a module
 robotmcp-server remove my-mcp-tools
