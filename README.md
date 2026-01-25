@@ -10,6 +10,9 @@ pipx install git+https://github.com/robotmcp/robotmcp_server.git
 
 # Run (opens browser for first-time setup)
 robotmcp-server
+
+# Verify everything is working
+robotmcp-server verify
 ```
 
 See [docs/install.md](docs/install.md) for manual installation and troubleshooting.
@@ -178,21 +181,7 @@ def my_tool(param: str) -> str:
 
 ## Version History
 
-- **v1.18.0**: Submodule auto-discovery - automatically find and register MCP tools from git submodules. Submodule dependencies are auto-installed at startup. Decoupled submodule configuration (submodules manage their own config via environment variables).
-- **v1.17.0**: Enhanced `verify` command with comprehensive diagnostics (server, tunnel, DNS, connectivity)
-- **v1.16.2**: Use importlib.metadata for version (single source of truth from pyproject.toml)
-- **v1.16.1**: Fix SSE endpoint to support shared member access (consistent with /mcp)
-- **v1.16.0**: Display version in CLI status output
-- **v1.15.0**: Shared member access - users added via dashboard can now connect to shared MCP servers
-- **v1.14.0**: Change default port from 8000 to 8766 (**BREAKING**: existing tunnels must be recreated with `robotmcp-server logout && robotmcp-server`)
-- **v1.13.0**: JWT tokens for stateless OAuth (tokens survive server restarts), endpoint compatibility docs
-- **v1.12.0**: Supabase centralized logging (replaces CloudWatch for security)
-- **v1.11.0**: AWS CloudWatch logging integration with JSON structured logs
-- **v1.10.0**: Comprehensive INFO-level logging for all MCP server activities
-- **v1.9.0**: Secure POST-based CLI login, WSL browser fix, Claude theme for OAuth pages
-- **v1.8.0**: OAuth templates, CLI improvements
-- **v1.7.0**: Cloudflare tunnel integration
-- **v1.0.0**: Initial release with OAuth 2.1 and Streamable HTTP
+- **v2.0.0**: Initial public release with submodule auto-discovery, auto-install dependencies, comprehensive verify command, OAuth 2.1, Cloudflare tunnel integration, and shared member access
 
 ## License
 
