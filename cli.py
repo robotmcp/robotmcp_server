@@ -1405,6 +1405,73 @@ def check_modules_compatibility(verbose: bool = True) -> dict:
     return result
 
 
+def _get_submodule_git_status(submodule_path: Path) -> dict:
+    """Get git status information for a submodule.
+
+    Returns dict with:
+        - branch: current branch name (or "detached" if detached HEAD)
+        - commit: short commit hash
+        - dirty: True if there are uncommitted changes
+        - untracked: number of untracked files
+    """
+    result = {
+        "branch": None,
+        "commit": None,
+        "dirty": False,
+        "untracked": 0,
+    }
+
+    if not submodule_path.exists():
+        return result
+
+    # Get current branch
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=submodule_path,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            branch = proc.stdout.strip()
+            result["branch"] = branch if branch != "HEAD" else "detached"
+    except Exception:
+        pass
+
+    # Get current commit hash
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=submodule_path,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            result["commit"] = proc.stdout.strip()
+    except Exception:
+        pass
+
+    # Check for dirty state (modified/staged files)
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=submodule_path,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            lines = [l for l in proc.stdout.strip().split("\n") if l]
+            # Count untracked vs modified
+            untracked = sum(1 for l in lines if l.startswith("??"))
+            modified = len(lines) - untracked
+            result["dirty"] = modified > 0
+            result["untracked"] = untracked
+    except Exception:
+        pass
+
+    return result
+
+
 def cmd_list():
     """List installed MCP server modules (git submodules)."""
     import configparser
@@ -1452,6 +1519,9 @@ def cmd_list():
         submodule_path = package_dir / mod["path"]
         pyproject_path = submodule_path / "pyproject.toml"
 
+        # Get git status for the submodule
+        git_status = _get_submodule_git_status(submodule_path)
+
         # Determine installation status
         if not submodule_path.exists():
             status = "not initialized"
@@ -1482,8 +1552,23 @@ def cmd_list():
         print(f"    Path:    {mod['path']}")
         if mod["url"]:
             print(f"    URL:     {mod['url']}")
-        if mod["branch"]:
-            print(f"    Branch:  {mod['branch']}")
+
+        # Show git status (branch, commit, dirty state)
+        if git_status["branch"] or git_status["commit"]:
+            git_info = []
+            if git_status["branch"]:
+                git_info.append(git_status["branch"])
+            if git_status["commit"]:
+                git_info.append(f"@{git_status['commit']}")
+            if git_status["dirty"]:
+                git_info.append("[dirty]")
+            if git_status["untracked"] > 0:
+                git_info.append(f"[+{git_status['untracked']} untracked]")
+            print(f"    Git:     {' '.join(git_info)}")
+        elif mod["branch"]:
+            # Fallback to tracked branch from .gitmodules if git status unavailable
+            print(f"    Branch:  {mod['branch']} (tracked)")
+
         if package_name:
             print(f"    Package: {package_name}")
         print(f"    Status:  {status}")
