@@ -8,7 +8,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [2.1.0] - 2025-01-24
 
 ### Added
-- CLI commands for module management: `add`, `remove`, `list`, `list-tools`
+- CLI commands for module management: `add`, `remove`, `list`, `list-tools`, `update`, `repair`
+- `update` command to update all MCP server modules to their latest commits
+- `repair` command to re-init missing or broken submodules (non-destructive)
+- Git status display in `list` command (branch/commit, dirty state, untracked files)
 - Module compatibility check at startup and in list commands
 - Modules without integration support display as "not compatible"
 
