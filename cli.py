@@ -1139,7 +1139,7 @@ def cmd_add(repo_url: str, branch: str | None = None):
 
         # Remove existing module
         print()
-        print(f"Removing existing module...")
+        print("Removing existing module...")
 
         # Deinitialize
         subprocess.run(
@@ -1199,7 +1199,15 @@ def cmd_add(repo_url: str, branch: str | None = None):
         # Initialize and update the submodule
         print("Initializing submodule...")
         subprocess.run(
-            ["git", "submodule", "update", "--init", "--recursive", "--progress", repo_name],
+            [
+                "git",
+                "submodule",
+                "update",
+                "--init",
+                "--recursive",
+                "--progress",
+                repo_name,
+            ],
             cwd=package_dir,
         )
 
@@ -1208,7 +1216,9 @@ def cmd_add(repo_url: str, branch: str | None = None):
         if pyproject.exists():
             print()
             print(f"[INFO] Found pyproject.toml in {repo_name}")
-            print("  Dependencies will be auto-installed on next 'robotmcp-server start'")
+            print(
+                "  Dependencies will be auto-installed on next 'robotmcp-server start'"
+            )
             print(f"  Or install manually: pip install -e {submodule_path}")
         else:
             print()
@@ -1217,7 +1227,9 @@ def cmd_add(repo_url: str, branch: str | None = None):
 
         print()
         print("Next steps:")
-        print("  1. Commit the changes: git add .gitmodules && git commit -m 'Add submodule'")
+        print(
+            "  1. Commit the changes: git add .gitmodules && git commit -m 'Add submodule'"
+        )
         print("  2. Restart the server: robotmcp-server restart")
 
     except subprocess.CalledProcessError as e:
@@ -1248,7 +1260,7 @@ def cmd_remove(name: str):
     gitmodules_path = package_dir / ".gitmodules"
     if gitmodules_path.exists():
         gitmodules_content = gitmodules_path.read_text()
-        if f'path = {name}' not in gitmodules_content:
+        if f"path = {name}" not in gitmodules_content:
             print(f"[ERROR] '{name}' is not a registered submodule")
             print("  Check .gitmodules for available submodules")
             sys.exit(1)
@@ -1281,7 +1293,7 @@ def cmd_remove(name: str):
             text=True,
         )
         if result.returncode != 0:
-            print(f"[ERROR] Failed to remove from git index:")
+            print("[ERROR] Failed to remove from git index:")
             print(f"  {result.stderr.strip()}")
             sys.exit(1)
 
@@ -1358,7 +1370,12 @@ def _check_integration_support(package_name: str, submodule_path: Path) -> bool:
                     import tomli as tomllib
                 with open(pyproject_path, "rb") as f:
                     data = tomllib.load(f)
-                if data.get("tool", {}).get("mcp", {}).get("integration", {}).get("register_function"):
+                if (
+                    data.get("tool", {})
+                    .get("mcp", {})
+                    .get("integration", {})
+                    .get("register_function")
+                ):
                     return True
             except Exception:
                 pass
@@ -1400,7 +1417,9 @@ def check_modules_compatibility(verbose: bool = True) -> dict:
         else:
             result["incompatible"].append(submodule["name"])
             if verbose:
-                print(f"  [!!] {submodule['name']}: not compatible (no integration module)")
+                print(
+                    f"  [!!] {submodule['name']}: not compatible (no integration module)"
+                )
 
     return result
 
@@ -1460,9 +1479,9 @@ def _get_submodule_git_status(submodule_path: Path) -> dict:
             text=True,
         )
         if proc.returncode == 0:
-            lines = [l for l in proc.stdout.strip().split("\n") if l]
+            lines = [line for line in proc.stdout.strip().split("\n") if line]
             # Count untracked vs modified
-            untracked = sum(1 for l in lines if l.startswith("??"))
+            untracked = sum(1 for line in lines if line.startswith("??"))
             modified = len(lines) - untracked
             result["dirty"] = modified > 0
             result["untracked"] = untracked
@@ -1493,16 +1512,18 @@ def cmd_list():
     modules = []
     for section in config.sections():
         if section.startswith('submodule "') and section.endswith('"'):
-            name = section[len('submodule "'):-1]
+            name = section[len('submodule "') : -1]
             path = config.get(section, "path", fallback=name)
             url = config.get(section, "url", fallback="")
             branch = config.get(section, "branch", fallback=None)
-            modules.append({
-                "name": name,
-                "path": path,
-                "url": url,
-                "branch": branch,
-            })
+            modules.append(
+                {
+                    "name": name,
+                    "path": path,
+                    "url": url,
+                    "branch": branch,
+                }
+            )
 
     if not modules:
         print("No MCP server modules installed.")
@@ -1673,7 +1694,9 @@ def cmd_list_tools():
         print("=" * 70)
         print(f"Total: {len(tools)} tools from {len(compatible_modules)} module(s)")
         if incompatible_modules:
-            print(f"Note: {len(incompatible_modules)} module(s) not compatible: {', '.join(incompatible_modules)}")
+            print(
+                f"Note: {len(incompatible_modules)} module(s) not compatible: {', '.join(incompatible_modules)}"
+            )
         print()
 
     except ImportError as e:
@@ -1707,14 +1730,16 @@ def cmd_update():
     modules = []
     for section in config.sections():
         if section.startswith('submodule "') and section.endswith('"'):
-            name = section[len('submodule "'):-1]
+            name = section[len('submodule "') : -1]
             path = config.get(section, "path", fallback=name)
             branch = config.get(section, "branch", fallback=None)
-            modules.append({
-                "name": name,
-                "path": path,
-                "branch": branch,
-            })
+            modules.append(
+                {
+                    "name": name,
+                    "path": path,
+                    "branch": branch,
+                }
+            )
 
     if not modules:
         print("No MCP server modules installed.")
@@ -1736,7 +1761,7 @@ def cmd_update():
         print(f"  Updating {module_name}...")
 
         if not module_path.exists():
-            print(f"    [SKIP] Module directory does not exist")
+            print("    [SKIP] Module directory does not exist")
             print(f"    Run: git submodule update --init {module_name}")
             failed.append(module_name)
             continue
@@ -1763,7 +1788,7 @@ def cmd_update():
             )
 
             if result.returncode != 0:
-                print(f"    [ERROR] Update failed")
+                print("    [ERROR] Update failed")
                 if result.stderr:
                     for line in result.stderr.strip().split("\n")[:3]:
                         print(f"      {line}")
@@ -1783,7 +1808,7 @@ def cmd_update():
                 print(f"    [OK] Updated: {old_commit} -> {new_commit}")
                 updated.append(module_name)
             else:
-                print(f"    [OK] Already up to date")
+                print("    [OK] Already up to date")
                 unchanged.append(module_name)
 
         except Exception as e:
@@ -1832,7 +1857,7 @@ def cmd_repair():
     modules = []
     for section in config.sections():
         if section.startswith('submodule "') and section.endswith('"'):
-            name = section[len('submodule "'):-1]
+            name = section[len('submodule "') : -1]
             path = config.get(section, "path", fallback=name)
             modules.append({"name": name, "path": path})
 
@@ -1877,7 +1902,9 @@ def cmd_repair():
                 skipped_count += 1
                 continue
             if git_status["untracked"] > 0:
-                print(f"    [SKIP] Folder exists with {git_status['untracked']} untracked file(s)")
+                print(
+                    f"    [SKIP] Folder exists with {git_status['untracked']} untracked file(s)"
+                )
                 print("           Remove or commit files first, then retry")
                 skipped_count += 1
                 continue
@@ -2063,7 +2090,8 @@ Examples:
         description="Add an MCP server module to extend functionality with additional tools.",
     )
     add_parser.add_argument(
-        "-b", "--branch",
+        "-b",
+        "--branch",
         metavar="BRANCH",
         help="Branch to track (e.g., main, develop)",
     )
