@@ -62,6 +62,11 @@ See [docs/project_plan.md](docs/project_plan.md) for architecture details.
 | `robotmcp-server stop` | Stop server and tunnel |
 | `robotmcp-server status` | Show current status |
 | `robotmcp-server verify` | Comprehensive verification (server, tunnel, DNS, connectivity) |
+| `robotmcp-server list` | List installed MCP server modules with compatibility status |
+| `robotmcp-server list-tools` | List all available MCP tools from compatible modules |
+| `robotmcp-server add <url>` | Add an MCP server module (git submodule) |
+| `robotmcp-server remove <name>` | Remove an MCP server module |
+| `robotmcp-server update` | Update all MCP server modules to latest |
 | `robotmcp-server logout` | Clear credentials and stop |
 
 ### Verification Command
@@ -133,14 +138,30 @@ See [docs/workflow.md](docs/workflow.md) for connection flow diagrams.
 The server automatically discovers and integrates MCP tools from git submodules:
 
 ```bash
-# Add a submodule (tools are auto-discovered on next startup)
-git submodule add https://github.com/example/my-mcp-tools.git
-git submodule update --init --recursive
+# Add a module using the CLI
+robotmcp-server add https://github.com/example/my-mcp-tools.git
+
+# Or add tracking a specific branch
+robotmcp-server add -b develop https://github.com/example/my-mcp-tools.git
+
+# List installed modules and their compatibility status
+robotmcp-server list
+
+# List all available tools
+robotmcp-server list-tools
+
+# Update all modules to latest
+robotmcp-server update
+
+# Remove a module
+robotmcp-server remove my-mcp-tools
 ```
 
 Your submodule needs:
 1. A `pyproject.toml` with a package name
 2. An `integration.py` with a `register(mcp, **kwargs)` function
+
+**Compatibility:** Modules without an integration module will show as "not compatible" in `list` and `list-tools` commands. The server checks for compatibility at startup and warns about incompatible modules.
 
 ```python
 # my_mcp_tools/integration.py
@@ -179,9 +200,9 @@ def my_tool(param: str) -> str:
 - [Project Plan](docs/project_plan.md) - Architecture, version history
 - [Workflow](docs/workflow.md) - Flow diagrams, components
 
-## Version History
+## Changelog
 
-- **v2.0.0**: Initial public release with submodule auto-discovery, auto-install dependencies, comprehensive verify command, OAuth 2.1, Cloudflare tunnel integration, and shared member access
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 
