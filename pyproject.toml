@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "robotmcp-server"
-version = "1.16.2"
+version = "2.1.0"
 description = "Modular MCP server with Streamable HTTP, optional OAuth 2.1, Supabase auth, Cloudflare tunnel, and creator-only access control"
 readme = "README.md"
 license = {text = "Proprietary - Copyright (c) 2025 Contoro. All rights reserved."}

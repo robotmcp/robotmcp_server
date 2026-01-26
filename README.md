@@ -10,6 +10,9 @@ pipx install git+https://github.com/robotmcp/robotmcp_server.git
 
 # Run (opens browser for first-time setup)
 robotmcp-server
+
+# Verify everything is working
+robotmcp-server verify
 ```
 
 See [docs/install.md](docs/install.md) for manual installation and troubleshooting.
@@ -59,6 +62,11 @@ See [docs/project_plan.md](docs/project_plan.md) for architecture details.
 | `robotmcp-server stop` | Stop server and tunnel |
 | `robotmcp-server status` | Show current status |
 | `robotmcp-server verify` | Comprehensive verification (server, tunnel, DNS, connectivity) |
+| `robotmcp-server list` | List installed MCP server modules with compatibility status |
+| `robotmcp-server list-tools` | List all available MCP tools from compatible modules |
+| `robotmcp-server add <url>` | Add an MCP server module (git submodule) |
+| `robotmcp-server remove <name>` | Remove an MCP server module |
+| `robotmcp-server update` | Update all MCP server modules to latest |
 | `robotmcp-server logout` | Clear credentials and stop |
 
 ### Verification Command
@@ -130,14 +138,30 @@ See [docs/workflow.md](docs/workflow.md) for connection flow diagrams.
 The server automatically discovers and integrates MCP tools from git submodules:
 
 ```bash
-# Add a submodule (tools are auto-discovered on next startup)
-git submodule add https://github.com/example/my-mcp-tools.git
-git submodule update --init --recursive
+# Add a module using the CLI
+robotmcp-server add https://github.com/example/my-mcp-tools.git
+
+# Or add tracking a specific branch
+robotmcp-server add -b develop https://github.com/example/my-mcp-tools.git
+
+# List installed modules and their compatibility status
+robotmcp-server list
+
+# List all available tools
+robotmcp-server list-tools
+
+# Update all modules to latest
+robotmcp-server update
+
+# Remove a module
+robotmcp-server remove my-mcp-tools
 ```
 
 Your submodule needs:
 1. A `pyproject.toml` with a package name
 2. An `integration.py` with a `register(mcp, **kwargs)` function
+
+**Compatibility:** Modules without an integration module will show as "not compatible" in `list` and `list-tools` commands. The server checks for compatibility at startup and warns about incompatible modules.
 
 ```python
 # my_mcp_tools/integration.py
@@ -176,23 +200,9 @@ def my_tool(param: str) -> str:
 - [Project Plan](docs/project_plan.md) - Architecture, version history
 - [Workflow](docs/workflow.md) - Flow diagrams, components
 
-## Version History
+## Changelog
 
-- **v1.18.0**: Submodule auto-discovery - automatically find and register MCP tools from git submodules. Submodule dependencies are auto-installed at startup. Decoupled submodule configuration (submodules manage their own config via environment variables).
-- **v1.17.0**: Enhanced `verify` command with comprehensive diagnostics (server, tunnel, DNS, connectivity)
-- **v1.16.2**: Use importlib.metadata for version (single source of truth from pyproject.toml)
-- **v1.16.1**: Fix SSE endpoint to support shared member access (consistent with /mcp)
-- **v1.16.0**: Display version in CLI status output
-- **v1.15.0**: Shared member access - users added via dashboard can now connect to shared MCP servers
-- **v1.14.0**: Change default port from 8000 to 8766 (**BREAKING**: existing tunnels must be recreated with `robotmcp-server logout && robotmcp-server`)
-- **v1.13.0**: JWT tokens for stateless OAuth (tokens survive server restarts), endpoint compatibility docs
-- **v1.12.0**: Supabase centralized logging (replaces CloudWatch for security)
-- **v1.11.0**: AWS CloudWatch logging integration with JSON structured logs
-- **v1.10.0**: Comprehensive INFO-level logging for all MCP server activities
-- **v1.9.0**: Secure POST-based CLI login, WSL browser fix, Claude theme for OAuth pages
-- **v1.8.0**: OAuth templates, CLI improvements
-- **v1.7.0**: Cloudflare tunnel integration
-- **v1.0.0**: Initial release with OAuth 2.1 and Streamable HTTP
+See [CHANGELOG.md](CHANGELOG.md) for version history.
 
 ## License
 

@@ -166,6 +166,9 @@ def discover_and_install_submodules(
         # Install the submodule
         if verbose:
             print(f"  [INSTALLING] {submodule['name']} ({package_name})...")
+            print(
+                "    WARNING: This will run 'pip install -e' which executes setup code."
+            )
 
         if install_submodule(submodule_path, verbose):
             result["installed"].append(submodule["name"])

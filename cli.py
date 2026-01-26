@@ -22,7 +22,12 @@ from dotenv import load_dotenv
 from supabase import create_client
 
 from config import load_config, clear_config, CONFIG_FILE
-from submodule_deps import ensure_submodule_deps
+from submodule_deps import (
+    ensure_submodule_deps,
+    parse_gitmodules,
+    get_package_name_from_pyproject,
+    is_package_installed,
+)
 
 # Load environment: .env (local override) or .env.public (bundled defaults)
 _env_file = Path(".env")
@@ -515,6 +520,15 @@ def cmd_start():
         print("\n[WARNING] Some submodule dependencies failed to install.")
         print("  The server may not work correctly.")
         print("  Try manually: pip install -e ./ros-mcp-server")
+        print()
+
+    # Check module compatibility
+    print("\nChecking module compatibility...")
+    compat = check_modules_compatibility(verbose=True)
+    if compat["incompatible"]:
+        print(f"\n[WARNING] {len(compat['incompatible'])} module(s) not compatible.")
+        print("  These modules will not provide tools to the server.")
+        print("  They may need a newer version with integration support.")
         print()
 
     # Cleanup old processes
@@ -1095,6 +1109,854 @@ def cmd_version():
     print("Copyright (c) 2025 Contoro. All rights reserved.")
 
 
+def cmd_add(repo_url: str, branch: str | None = None):
+    """Add a git submodule (MCP tool package).
+
+    Args:
+        repo_url: Git repository URL to add as submodule
+        branch: Optional branch to track
+    """
+    # Extract submodule name from repo URL
+    # e.g., https://github.com/example/mcp-tools.git -> mcp-tools
+    repo_name = repo_url.rstrip("/").rstrip(".git").split("/")[-1]
+
+    # Get the directory where this script is located (package root)
+    package_dir = Path(__file__).parent.resolve()
+
+    # Check if already exists
+    submodule_path = package_dir / repo_name
+    if submodule_path.exists():
+        print(f"Module '{repo_name}' already exists.")
+        try:
+            response = input("Remove and reinstall? [y/N]: ").strip().lower()
+        except (EOFError, KeyboardInterrupt):
+            print("\nCancelled.")
+            sys.exit(1)
+
+        if response != "y":
+            print("Cancelled.")
+            sys.exit(0)
+
+        # Remove existing module
+        print()
+        print("Removing existing module...")
+
+        # Deinitialize
+        subprocess.run(
+            ["git", "submodule", "deinit", "-f", repo_name],
+            cwd=package_dir,
+            capture_output=True,
+        )
+
+        # Remove from git index
+        subprocess.run(
+            ["git", "rm", "-f", repo_name],
+            cwd=package_dir,
+            capture_output=True,
+        )
+
+        # Remove .git/modules cache
+        git_modules_path = package_dir / ".git" / "modules" / repo_name
+        if git_modules_path.exists():
+            shutil.rmtree(git_modules_path)
+
+        # Remove directory if still exists
+        if submodule_path.exists():
+            shutil.rmtree(submodule_path)
+
+        print("Existing module removed.")
+        print()
+
+    # Build git submodule add command
+    cmd = ["git", "submodule", "add", "--progress"]
+    if branch:
+        cmd.extend(["-b", branch])
+    cmd.append(repo_url)
+    cmd.append(repo_name)
+
+    print(f"Adding submodule: {repo_name}")
+    if branch:
+        print(f"  Branch: {branch}")
+    print(f"  URL: {repo_url}")
+    print(f"  Path: {submodule_path}")
+    print()
+
+    try:
+        # Don't capture output so user can see progress and enter credentials if needed
+        result = subprocess.run(
+            cmd,
+            cwd=package_dir,
+        )
+
+        if result.returncode != 0:
+            print("[ERROR] Failed to add submodule")
+            sys.exit(1)
+
+        print()
+        print("Submodule added successfully!")
+        print()
+
+        # Initialize and update the submodule
+        print("Initializing submodule...")
+        subprocess.run(
+            [
+                "git",
+                "submodule",
+                "update",
+                "--init",
+                "--recursive",
+                "--progress",
+                repo_name,
+            ],
+            cwd=package_dir,
+        )
+
+        # Check if submodule has pyproject.toml (indicates it's a Python package)
+        pyproject = submodule_path / "pyproject.toml"
+        if pyproject.exists():
+            print()
+            print(f"[INFO] Found pyproject.toml in {repo_name}")
+            print(
+                "  Dependencies will be auto-installed on next 'robotmcp-server start'"
+            )
+            print(f"  Or install manually: pip install -e {submodule_path}")
+        else:
+            print()
+            print(f"[WARNING] No pyproject.toml found in {repo_name}")
+            print("  This submodule may not be a valid MCP tool package")
+
+        print()
+        print("Next steps:")
+        print(
+            "  1. Commit the changes: git add .gitmodules && git commit -m 'Add submodule'"
+        )
+        print("  2. Restart the server: robotmcp-server restart")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Command failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+        sys.exit(1)
+
+
+def cmd_remove(name: str):
+    """Remove a git submodule (MCP tool package).
+
+    Args:
+        name: Name of the submodule to remove
+    """
+    # Get the directory where this script is located (package root)
+    package_dir = Path(__file__).parent.resolve()
+    submodule_path = package_dir / name
+
+    # Check if submodule exists
+    if not submodule_path.exists():
+        print(f"[ERROR] Submodule not found: {name}")
+        print(f"  Expected path: {submodule_path}")
+        sys.exit(1)
+
+    # Check if it's actually a submodule by checking .gitmodules
+    gitmodules_path = package_dir / ".gitmodules"
+    if gitmodules_path.exists():
+        gitmodules_content = gitmodules_path.read_text()
+        if f"path = {name}" not in gitmodules_content:
+            print(f"[ERROR] '{name}' is not a registered submodule")
+            print("  Check .gitmodules for available submodules")
+            sys.exit(1)
+    else:
+        print("[ERROR] No .gitmodules file found")
+        sys.exit(1)
+
+    print(f"Removing submodule: {name}")
+    print(f"  Path: {submodule_path}")
+    print()
+
+    try:
+        # Step 1: Deinitialize the submodule
+        print("Deinitializing submodule...")
+        result = subprocess.run(
+            ["git", "submodule", "deinit", "-f", name],
+            cwd=package_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0 and "not initialized" not in result.stderr:
+            print(f"  Warning: {result.stderr.strip()}")
+
+        # Step 2: Remove from git index
+        print("Removing from git index...")
+        result = subprocess.run(
+            ["git", "rm", "-f", name],
+            cwd=package_dir,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode != 0:
+            print("[ERROR] Failed to remove from git index:")
+            print(f"  {result.stderr.strip()}")
+            sys.exit(1)
+
+        # Step 3: Remove the .git/modules/<name> directory
+        git_modules_path = package_dir / ".git" / "modules" / name
+        if git_modules_path.exists():
+            print("Removing cached module data...")
+            shutil.rmtree(git_modules_path)
+
+        # Step 4: Remove the submodule directory if it still exists
+        if submodule_path.exists():
+            print("Removing submodule directory...")
+            shutil.rmtree(submodule_path)
+
+        print()
+        print(f"Submodule '{name}' removed successfully!")
+        print()
+        print("Next steps:")
+        print("  1. Commit the changes: git commit -m 'Remove submodule'")
+        print("  2. Restart the server: robotmcp-server restart")
+
+    except subprocess.CalledProcessError as e:
+        print(f"[ERROR] Command failed: {e}")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Unexpected error: {e}")
+        sys.exit(1)
+
+
+def _check_integration_support(package_name: str, submodule_path: Path) -> bool:
+    """Check if a module has integration support for robotmcp-server.
+
+    Returns True if the module has one of:
+    - <package>/integration.py with register() function
+    - <package>/tools/__init__.py with register_all_tools()
+    - [tool.mcp.integration] section in pyproject.toml
+    """
+    import importlib
+
+    # Normalize package name
+    pkg_name = package_name.replace("-", "_")
+
+    # Add submodule to path temporarily
+    submodule_str = str(submodule_path)
+    added_to_path = False
+    if submodule_str not in sys.path:
+        sys.path.insert(0, submodule_str)
+        added_to_path = True
+
+    try:
+        # Check for integration module
+        try:
+            integration_mod = importlib.import_module(f"{pkg_name}.integration")
+            if hasattr(integration_mod, "register"):
+                return True
+        except ImportError:
+            pass
+
+        # Check for tools module
+        try:
+            tools_mod = importlib.import_module(f"{pkg_name}.tools")
+            if hasattr(tools_mod, "register_all_tools"):
+                return True
+        except ImportError:
+            pass
+
+        # Check pyproject.toml for [tool.mcp.integration]
+        pyproject_path = submodule_path / "pyproject.toml"
+        if pyproject_path.exists():
+            try:
+                try:
+                    import tomllib
+                except ImportError:
+                    import tomli as tomllib
+                with open(pyproject_path, "rb") as f:
+                    data = tomllib.load(f)
+                if (
+                    data.get("tool", {})
+                    .get("mcp", {})
+                    .get("integration", {})
+                    .get("register_function")
+                ):
+                    return True
+            except Exception:
+                pass
+
+        return False
+    finally:
+        if added_to_path:
+            sys.path.remove(submodule_str)
+
+
+def check_modules_compatibility(verbose: bool = True) -> dict:
+    """Check compatibility of all installed MCP server modules.
+
+    Returns:
+        Dict with 'compatible' and 'incompatible' lists of module names.
+    """
+    package_dir = Path(__file__).parent.resolve()
+    result = {"compatible": [], "incompatible": []}
+
+    submodules = parse_gitmodules(package_dir)
+    if not submodules:
+        return result
+
+    for submodule in submodules:
+        submodule_path = package_dir / submodule["path"]
+        pyproject_path = submodule_path / "pyproject.toml"
+
+        if not submodule_path.exists() or not pyproject_path.exists():
+            continue
+
+        package_name = get_package_name_from_pyproject(pyproject_path)
+        if not package_name or not is_package_installed(package_name):
+            continue
+
+        if _check_integration_support(package_name, submodule_path):
+            result["compatible"].append(submodule["name"])
+            if verbose:
+                print(f"  [OK] {submodule['name']}: compatible")
+        else:
+            result["incompatible"].append(submodule["name"])
+            if verbose:
+                print(
+                    f"  [!!] {submodule['name']}: not compatible (no integration module)"
+                )
+
+    return result
+
+
+def _get_submodule_git_status(submodule_path: Path) -> dict:
+    """Get git status information for a submodule.
+
+    Returns dict with:
+        - branch: current branch name (or "detached" if detached HEAD)
+        - commit: short commit hash
+        - dirty: True if there are uncommitted changes
+        - untracked: number of untracked files
+    """
+    result = {
+        "branch": None,
+        "commit": None,
+        "dirty": False,
+        "untracked": 0,
+    }
+
+    if not submodule_path.exists():
+        return result
+
+    # Get current branch
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            cwd=submodule_path,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            branch = proc.stdout.strip()
+            result["branch"] = branch if branch != "HEAD" else "detached"
+    except Exception:
+        pass
+
+    # Get current commit hash
+    try:
+        proc = subprocess.run(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=submodule_path,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            result["commit"] = proc.stdout.strip()
+    except Exception:
+        pass
+
+    # Check for dirty state (modified/staged files)
+    try:
+        proc = subprocess.run(
+            ["git", "status", "--porcelain"],
+            cwd=submodule_path,
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            lines = [line for line in proc.stdout.strip().split("\n") if line]
+            # Count untracked vs modified
+            untracked = sum(1 for line in lines if line.startswith("??"))
+            modified = len(lines) - untracked
+            result["dirty"] = modified > 0
+            result["untracked"] = untracked
+    except Exception:
+        pass
+
+    return result
+
+
+def cmd_list():
+    """List installed MCP server modules (git submodules)."""
+    import configparser
+
+    package_dir = Path(__file__).parent.resolve()
+    gitmodules_path = package_dir / ".gitmodules"
+
+    if not gitmodules_path.exists():
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    # Parse .gitmodules to get full info (including URL and branch)
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+
+    modules = []
+    for section in config.sections():
+        if section.startswith('submodule "') and section.endswith('"'):
+            name = section[len('submodule "') : -1]
+            path = config.get(section, "path", fallback=name)
+            url = config.get(section, "url", fallback="")
+            branch = config.get(section, "branch", fallback=None)
+            modules.append(
+                {
+                    "name": name,
+                    "path": path,
+                    "url": url,
+                    "branch": branch,
+                }
+            )
+
+    if not modules:
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    print()
+    print(f"MCP Server Modules ({len(modules)}):")
+    print("=" * 70)
+
+    for mod in modules:
+        submodule_path = package_dir / mod["path"]
+        pyproject_path = submodule_path / "pyproject.toml"
+
+        # Get git status for the submodule
+        git_status = _get_submodule_git_status(submodule_path)
+
+        # Determine installation status
+        if not submodule_path.exists():
+            status = "not initialized"
+            package_name = None
+            compatible = False
+        elif not pyproject_path.exists():
+            status = "no pyproject.toml"
+            package_name = None
+            compatible = False
+        else:
+            package_name = get_package_name_from_pyproject(pyproject_path)
+            if package_name and is_package_installed(package_name):
+                # Check integration support
+                compatible = _check_integration_support(package_name, submodule_path)
+                if compatible:
+                    status = "installed"
+                else:
+                    status = "installed (not compatible)"
+            elif package_name:
+                status = "not installed"
+                compatible = False
+            else:
+                status = "unknown"
+                compatible = False
+
+        print()
+        print(f"  {mod['name']}")
+        print(f"    Path:    {mod['path']}")
+        if mod["url"]:
+            print(f"    URL:     {mod['url']}")
+
+        # Show git status (branch, commit, dirty state)
+        if git_status["branch"] or git_status["commit"]:
+            git_info = []
+            if git_status["branch"]:
+                git_info.append(git_status["branch"])
+            if git_status["commit"]:
+                git_info.append(f"@{git_status['commit']}")
+            if git_status["dirty"]:
+                git_info.append("[dirty]")
+            if git_status["untracked"] > 0:
+                git_info.append(f"[+{git_status['untracked']} untracked]")
+            print(f"    Git:     {' '.join(git_info)}")
+        elif mod["branch"]:
+            # Fallback to tracked branch from .gitmodules if git status unavailable
+            print(f"    Branch:  {mod['branch']} (tracked)")
+
+        if package_name:
+            print(f"    Package: {package_name}")
+        print(f"    Status:  {status}")
+
+    print()
+    print("=" * 70)
+    print()
+    print("Commands:")
+    print("  robotmcp-server add <url>     Add a module")
+    print("  robotmcp-server remove <name> Remove a module")
+    print("  robotmcp-server update        Update all modules")
+    print()
+
+
+def cmd_list_tools():
+    """List all available MCP tools from installed modules."""
+    import asyncio
+
+    package_dir = Path(__file__).parent.resolve()
+
+    # Check if any modules are installed
+    gitmodules_path = package_dir / ".gitmodules"
+    if not gitmodules_path.exists():
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    print()
+    print("Discovering tools from installed modules...")
+    print()
+
+    try:
+        # Import here to avoid loading FastMCP for other commands
+        from fastmcp import FastMCP
+        from submodule_integration import register_all_submodules
+
+        # Create temporary MCP instance
+        mcp = FastMCP("robotmcp-server")
+
+        # Register all submodules (this discovers tools)
+        results = register_all_submodules(mcp)
+
+        # Show module registration status
+        print("Module Status:")
+        print("-" * 70)
+        compatible_modules = []
+        incompatible_modules = []
+        for module_name, status in results.items():
+            if status.get("tools") or status.get("resources") or status.get("prompts"):
+                compatible_modules.append(module_name)
+                print(f"  {module_name}: compatible")
+            else:
+                incompatible_modules.append(module_name)
+                print(f"  {module_name}: not compatible (no integration module)")
+        print()
+
+        # Get tools async
+        async def get_all_tools():
+            return await mcp.get_tools()
+
+        tools = asyncio.run(get_all_tools())
+
+        if not tools:
+            print("No tools found.")
+            print()
+            if incompatible_modules:
+                print("Some modules are not compatible:")
+                for mod in incompatible_modules:
+                    print(f"  - {mod}: missing integration module")
+                print()
+                print("Compatible modules need one of:")
+                print("  - <package>/integration.py with register(mcp) function")
+                print("  - <package>/tools/__init__.py with register_all_tools(mcp)")
+                print("  - [tool.mcp.integration] section in pyproject.toml")
+            return
+
+        print(f"Available Tools ({len(tools)}):")
+        print("=" * 70)
+
+        # Group by prefix (e.g., ros_*, file_*, etc.)
+        grouped = {}
+        for name, tool in sorted(tools.items()):
+            prefix = name.split("_")[0] if "_" in name else "other"
+            if prefix not in grouped:
+                grouped[prefix] = []
+            grouped[prefix].append((name, tool))
+
+        for prefix, tool_list in sorted(grouped.items()):
+            print()
+            print(f"  [{prefix}] ({len(tool_list)} tools)")
+            for name, tool in tool_list:
+                desc = tool.description or "No description"
+                # Truncate long descriptions
+                if len(desc) > 50:
+                    desc = desc[:47] + "..."
+                print(f"    {name}")
+                print(f"      {desc}")
+
+        print()
+        print("=" * 70)
+        print(f"Total: {len(tools)} tools from {len(compatible_modules)} module(s)")
+        if incompatible_modules:
+            print(
+                f"Note: {len(incompatible_modules)} module(s) not compatible: {', '.join(incompatible_modules)}"
+            )
+        print()
+
+    except ImportError as e:
+        print(f"[ERROR] Failed to import required modules: {e}")
+        print("  Make sure dependencies are installed:")
+        print("  pip install -e .")
+        sys.exit(1)
+    except Exception as e:
+        print(f"[ERROR] Failed to discover tools: {e}")
+        sys.exit(1)
+
+
+def cmd_update():
+    """Update all MCP server modules to their latest commits."""
+    import configparser
+
+    package_dir = Path(__file__).parent.resolve()
+    gitmodules_path = package_dir / ".gitmodules"
+
+    if not gitmodules_path.exists():
+        print("No MCP server modules installed.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    # Parse .gitmodules to get all modules
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+
+    modules = []
+    for section in config.sections():
+        if section.startswith('submodule "') and section.endswith('"'):
+            name = section[len('submodule "') : -1]
+            path = config.get(section, "path", fallback=name)
+            branch = config.get(section, "branch", fallback=None)
+            modules.append(
+                {
+                    "name": name,
+                    "path": path,
+                    "branch": branch,
+                }
+            )
+
+    if not modules:
+        print("No MCP server modules installed.")
+        return
+
+    print()
+    print(f"Updating {len(modules)} module(s)...")
+    print("=" * 70)
+
+    updated = []
+    failed = []
+    unchanged = []
+
+    for mod in modules:
+        module_name = mod["name"]
+        module_path = package_dir / mod["path"]
+
+        print()
+        print(f"  Updating {module_name}...")
+
+        if not module_path.exists():
+            print("    [SKIP] Module directory does not exist")
+            print(f"    Run: git submodule update --init {module_name}")
+            failed.append(module_name)
+            continue
+
+        # Get current commit hash before update
+        try:
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=module_path,
+                capture_output=True,
+                text=True,
+            )
+            old_commit = result.stdout.strip()[:8] if result.returncode == 0 else None
+        except Exception:
+            old_commit = None
+
+        # Update the submodule to latest remote commit
+        try:
+            result = subprocess.run(
+                ["git", "submodule", "update", "--remote", "--merge", mod["path"]],
+                cwd=package_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode != 0:
+                print("    [ERROR] Update failed")
+                if result.stderr:
+                    for line in result.stderr.strip().split("\n")[:3]:
+                        print(f"      {line}")
+                failed.append(module_name)
+                continue
+
+            # Get new commit hash after update
+            result = subprocess.run(
+                ["git", "rev-parse", "HEAD"],
+                cwd=module_path,
+                capture_output=True,
+                text=True,
+            )
+            new_commit = result.stdout.strip()[:8] if result.returncode == 0 else None
+
+            if old_commit and new_commit and old_commit != new_commit:
+                print(f"    [OK] Updated: {old_commit} -> {new_commit}")
+                updated.append(module_name)
+            else:
+                print("    [OK] Already up to date")
+                unchanged.append(module_name)
+
+        except Exception as e:
+            print(f"    [ERROR] {e}")
+            failed.append(module_name)
+
+    # Summary
+    print()
+    print("=" * 70)
+    print()
+    print("Summary:")
+    if updated:
+        print(f"  Updated:   {len(updated)} module(s) - {', '.join(updated)}")
+    if unchanged:
+        print(f"  Unchanged: {len(unchanged)} module(s)")
+    if failed:
+        print(f"  Failed:    {len(failed)} module(s) - {', '.join(failed)}")
+
+    if updated:
+        print()
+        print("Next steps:")
+        print("  1. Review changes: git diff")
+        print("  2. Commit the update: git add . && git commit -m 'Update submodules'")
+        print("  3. Restart the server: robotmcp-server restart")
+    print()
+
+
+def cmd_repair():
+    """Repair MCP server modules (re-init missing submodules, check integrity)."""
+    import configparser
+
+    package_dir = Path(__file__).parent.resolve()
+    gitmodules_path = package_dir / ".gitmodules"
+
+    if not gitmodules_path.exists():
+        print("No MCP server modules configured.")
+        print()
+        print("Add one with:")
+        print("  robotmcp-server add https://github.com/robotmcp/ros-mcp-server")
+        return
+
+    # Parse .gitmodules to get all modules
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+
+    modules = []
+    for section in config.sections():
+        if section.startswith('submodule "') and section.endswith('"'):
+            name = section[len('submodule "') : -1]
+            path = config.get(section, "path", fallback=name)
+            modules.append({"name": name, "path": path})
+
+    if not modules:
+        print("No MCP server modules configured.")
+        return
+
+    print()
+    print(f"Checking {len(modules)} module(s)...")
+    print("=" * 70)
+
+    ok_count = 0
+    fixed_count = 0
+    skipped_count = 0
+    failed_count = 0
+
+    for mod in modules:
+        module_name = mod["name"]
+        module_path = package_dir / mod["path"]
+        git_file = module_path / ".git"
+
+        print()
+        print(f"  {module_name}:")
+
+        # Check if folder exists and is properly initialized
+        if module_path.exists() and git_file.exists():
+            # Check if dirty
+            git_status = _get_submodule_git_status(module_path)
+            if git_status["dirty"] or git_status["untracked"] > 0:
+                print("    [OK] Initialized (has local changes)")
+            else:
+                print("    [OK] Initialized")
+            ok_count += 1
+            continue
+
+        # Folder missing or not properly initialized - check if dirty first
+        if module_path.exists():
+            git_status = _get_submodule_git_status(module_path)
+            if git_status["dirty"]:
+                print("    [SKIP] Folder exists with uncommitted changes")
+                print("           Commit or stash changes first, then retry")
+                skipped_count += 1
+                continue
+            if git_status["untracked"] > 0:
+                print(
+                    f"    [SKIP] Folder exists with {git_status['untracked']} untracked file(s)"
+                )
+                print("           Remove or commit files first, then retry")
+                skipped_count += 1
+                continue
+
+        # Try to re-initialize
+        print("    Initializing...")
+        try:
+            result = subprocess.run(
+                ["git", "submodule", "update", "--init", mod["path"]],
+                cwd=package_dir,
+                capture_output=True,
+                text=True,
+            )
+
+            if result.returncode == 0:
+                print("    [FIXED] Re-initialized successfully")
+                fixed_count += 1
+            else:
+                print("    [ERROR] Failed to initialize")
+                if result.stderr:
+                    for line in result.stderr.strip().split("\n")[:3]:
+                        print(f"      {line}")
+                failed_count += 1
+
+        except Exception as e:
+            print(f"    [ERROR] {e}")
+            failed_count += 1
+
+    # Summary
+    print()
+    print("=" * 70)
+    print()
+    print("Summary:")
+    if ok_count:
+        print(f"  OK:      {ok_count} module(s)")
+    if fixed_count:
+        print(f"  Fixed:   {fixed_count} module(s)")
+    if skipped_count:
+        print(f"  Skipped: {skipped_count} module(s) (have local changes)")
+    if failed_count:
+        print(f"  Failed:  {failed_count} module(s)")
+
+    if fixed_count > 0:
+        print()
+        print("Repair complete. You may need to reinstall packages:")
+        print("  uv pip install -e <module-path>")
+    elif skipped_count == 0 and failed_count == 0:
+        print()
+        print("All modules OK. Nothing to repair.")
+    print()
+
+
 def cmd_help():
     """Show detailed help."""
     print("""
@@ -1112,8 +1974,20 @@ COMMANDS:
     verify      Test tunnel connectivity and endpoints
     login       Log in to RobotMCP (browser OAuth)
     logout      Log out and clear stored credentials
+    list        List installed MCP server modules
+    list-tools  List all available MCP tools
+    add         Add an MCP server module (git submodule)
+    remove      Remove an MCP server module (git submodule)
+    update      Update all MCP server modules to latest
     version     Show version information
     help        Show this help message
+
+MCP SERVER MODULES:
+    MCP server modules are git repositories containing MCP tools that extend
+    robotmcp-server functionality. They are added as git submodules.
+
+    Format: https://github.com/<owner>/<mcp-server-repo>
+    Example: https://github.com/robotmcp/ros-mcp-server
 
 EXAMPLES:
     # Start server (runs in background)
@@ -1124,6 +1998,24 @@ EXAMPLES:
 
     # Stop the server
     robotmcp-server stop
+
+    # List installed MCP server modules
+    robotmcp-server list
+
+    # List all available MCP tools
+    robotmcp-server list-tools
+
+    # Add an MCP server module
+    robotmcp-server add https://github.com/robotmcp/ros-mcp-server
+
+    # Add an MCP server module tracking a specific branch
+    robotmcp-server add -b main https://github.com/robotmcp/ros-mcp-server
+
+    # Remove an MCP server module
+    robotmcp-server remove ros-mcp-server
+
+    # Update all MCP server modules to latest
+    robotmcp-server update
 
     # View logs
     tail -f ~/.robotmcp-server/server.log
@@ -1156,39 +2048,15 @@ def main():
         description="RobotMCP Server - Local MCP server with OAuth",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
-Commands:
-  start     Start the MCP server (default)
-  stop      Stop the running server
-  restart   Restart the server
-  status    Show current status
-  verify    Test tunnel connectivity
-  logout    Log out and clear credentials
-  version   Show version
-  help      Show detailed help
-
 Examples:
   robotmcp-server start
   robotmcp-server status
-  robotmcp-server stop
+  robotmcp-server list
+  robotmcp-server list-tools
+  robotmcp-server add https://github.com/robotmcp/ros-mcp-server
+  robotmcp-server remove ros-mcp-server
+  robotmcp-server update
 """,
-    )
-
-    parser.add_argument(
-        "command",
-        nargs="?",
-        default="start",
-        choices=[
-            "start",
-            "stop",
-            "restart",
-            "status",
-            "login",
-            "logout",
-            "verify",
-            "version",
-            "help",
-        ],
-        help="Command to run (default: start)",
     )
 
     # Legacy flags for backward compatibility
@@ -1196,6 +2064,54 @@ Examples:
     parser.add_argument("--stop", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--logout", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--version", "-v", action="store_true", help=argparse.SUPPRESS)
+
+    # Create subparsers for commands
+    subparsers = parser.add_subparsers(dest="command", help="Command to run")
+
+    # Simple commands (no additional arguments)
+    subparsers.add_parser("start", help="Start the MCP server in background")
+    subparsers.add_parser("stop", help="Stop the running server and tunnel")
+    subparsers.add_parser("restart", help="Restart the server")
+    subparsers.add_parser("status", help="Show current status and configuration")
+    subparsers.add_parser("verify", help="Test tunnel connectivity and endpoints")
+    subparsers.add_parser("login", help="Log in to RobotMCP (browser OAuth)")
+    subparsers.add_parser("logout", help="Log out and clear stored credentials")
+    subparsers.add_parser("list", help="List installed MCP server modules")
+    subparsers.add_parser("list-tools", help="List all available MCP tools")
+    subparsers.add_parser("update", help="Update all MCP server modules to latest")
+    subparsers.add_parser("repair", help="Repair modules (re-init missing submodules)")
+    subparsers.add_parser("version", help="Show version information")
+    subparsers.add_parser("help", help="Show detailed help message")
+
+    # Add command with arguments
+    add_parser = subparsers.add_parser(
+        "add",
+        help="Add an MCP server module (git submodule)",
+        description="Add an MCP server module to extend functionality with additional tools.",
+    )
+    add_parser.add_argument(
+        "-b",
+        "--branch",
+        metavar="BRANCH",
+        help="Branch to track (e.g., main, develop)",
+    )
+    add_parser.add_argument(
+        "repo_url",
+        metavar="MCP_SERVER_MODULE",
+        help="GitHub URL (e.g., https://github.com/robotmcp/ros-mcp-server)",
+    )
+
+    # Remove command with arguments
+    remove_parser = subparsers.add_parser(
+        "remove",
+        help="Remove an MCP server module (git submodule)",
+        description="Remove an MCP server module from the server.",
+    )
+    remove_parser.add_argument(
+        "name",
+        metavar="MODULE_NAME",
+        help="Name of the module to remove (e.g., ros-mcp-server)",
+    )
 
     args = parser.parse_args()
 
@@ -1221,12 +2137,27 @@ Examples:
         cmd_login()
     elif args.command == "logout":
         cmd_logout()
+    elif args.command == "list":
+        cmd_list()
+    elif args.command == "list-tools":
+        cmd_list_tools()
+    elif args.command == "update":
+        cmd_update()
+    elif args.command == "repair":
+        cmd_repair()
     elif args.command == "verify":
         cmd_verify()
     elif args.command == "version":
         cmd_version()
     elif args.command == "help":
         cmd_help()
+    elif args.command == "add":
+        cmd_add(args.repo_url, args.branch)
+    elif args.command == "remove":
+        cmd_remove(args.name)
+    elif args.command is None:
+        # Default to start if no command given
+        cmd_start()
     else:
         parser.print_help()
 
