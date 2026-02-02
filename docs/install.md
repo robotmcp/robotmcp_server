@@ -10,11 +10,22 @@ This guide covers installing and using robotmcp-server (v1.8.0) on your local ma
 
 ## Quick Install (Recommended)
 
-### Install via pipx
+### Option 1: Direct install via pipx
 
 ```bash
 pipx install git+https://github.com/robotmcp/robotmcp_server.git
 ```
+
+Submodules (MCP tool packages) are automatically downloaded on first run.
+
+### Option 2: Clone with submodules
+
+```bash
+git clone --recursive https://github.com/robotmcp/robotmcp_server.git
+pipx install ./robotmcp_server
+```
+
+This downloads submodules upfront during clone.
 
 ### Run
 
