@@ -11,6 +11,66 @@ from pathlib import Path
 from importlib.metadata import distributions
 
 
+def init_submodule(root: Path, submodule_path: str, verbose: bool = True) -> bool:
+    """Initialize a git submodule if not already initialized.
+
+    Args:
+        root: Root directory of the git repository
+        submodule_path: Relative path to the submodule
+        verbose: Print status messages
+
+    Returns:
+        True if submodule is initialized (or was already), False on failure.
+    """
+    full_path = root / submodule_path
+
+    # Check if already initialized (has .git file/folder)
+    git_marker = full_path / ".git"
+    if git_marker.exists():
+        return True
+
+    # Check if we're in a git repo
+    git_dir = root / ".git"
+    if not git_dir.exists():
+        if verbose:
+            print("  [SKIP] Not a git repository, cannot init submodule")
+        return False
+
+    if verbose:
+        print(f"  [INIT] Initializing submodule {submodule_path}...")
+
+    try:
+        result = subprocess.run(
+            ["git", "submodule", "update", "--init", submodule_path],
+            cwd=root,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+        if result.returncode == 0:
+            if verbose:
+                print(f"  [OK] Submodule {submodule_path} initialized")
+            return True
+        else:
+            if verbose:
+                print(
+                    f"  [ERROR] Failed to init {submodule_path}: {result.stderr.strip()}"
+                )
+            return False
+    except subprocess.TimeoutExpired:
+        if verbose:
+            print(f"  [ERROR] Timeout initializing {submodule_path}")
+        return False
+    except FileNotFoundError:
+        if verbose:
+            print("  [ERROR] git not found, cannot init submodule")
+        return False
+    except Exception as e:
+        if verbose:
+            print(f"  [ERROR] Failed to init {submodule_path}: {e}")
+        return False
+
+
 def parse_gitmodules(root: Path) -> list[dict]:
     """Parse .gitmodules file to find submodule paths and names.
 
@@ -108,13 +168,14 @@ def discover_and_install_submodules(
         verbose: Print status messages
 
     Returns:
-        Dict with 'found', 'installed', 'failed', 'already_installed' lists.
+        Dict with 'found', 'initialized', 'installed', 'failed', 'already_installed' lists.
     """
     if root is None:
         root = Path(__file__).parent
 
     result = {
         "found": [],
+        "initialized": [],
         "installed": [],
         "failed": [],
         "already_installed": [],
@@ -133,11 +194,33 @@ def discover_and_install_submodules(
         submodule_path = root / submodule["path"]
         pyproject_path = submodule_path / "pyproject.toml"
 
-        # Check if submodule directory exists
+        # Check if submodule needs initialization
+        # (directory missing, empty, or no .git marker)
+        git_marker = submodule_path / ".git"
+        was_initialized = git_marker.exists()
+        needs_init = (
+            not submodule_path.exists()
+            or not was_initialized
+            or not pyproject_path.exists()
+        )
+
+        if needs_init:
+            # Try to initialize the submodule
+            if not init_submodule(root, submodule["path"], verbose):
+                if verbose and not submodule_path.exists():
+                    print(
+                        f"  [SKIP] {submodule['name']}: could not initialize submodule"
+                    )
+                continue
+            # Track that we initialized this submodule
+            if not was_initialized:
+                result["initialized"].append(submodule["name"])
+
+        # Re-check paths after potential initialization
         if not submodule_path.exists():
             if verbose:
                 print(
-                    f"  [SKIP] {submodule['name']}: directory not found (run 'git submodule update --init')"
+                    f"  [SKIP] {submodule['name']}: directory not found after init attempt"
                 )
             continue
 
