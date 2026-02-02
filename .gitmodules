@@ -1,3 +1,6 @@
-[submodule "test-mcp-server"]
-	path = test-mcp-server
+[submodule "modules/test-mcp-server"]
+	path = modules/test-mcp-server
 	url = https://github.com/robotmcp/test-mcp-server.git
+[submodule "modules/ros-mcp-server"]
+	path = modules/ros-mcp-server
+	url = https://github.com/robotmcp/ros-mcp-server

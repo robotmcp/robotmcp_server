@@ -1123,8 +1123,15 @@ def cmd_add(repo_url: str, branch: str | None = None):
     # Get the directory where this script is located (package root)
     package_dir = Path(__file__).parent.resolve()
 
+    # Modules are stored in the modules/ subdirectory
+    modules_dir = package_dir / "modules"
+    modules_dir.mkdir(exist_ok=True)
+
+    # Submodule path relative to package root (for git commands)
+    submodule_rel_path = f"modules/{repo_name}"
+
     # Check if already exists
-    submodule_path = package_dir / repo_name
+    submodule_path = modules_dir / repo_name
     if submodule_path.exists():
         print(f"Module '{repo_name}' already exists.")
         try:
@@ -1143,20 +1150,20 @@ def cmd_add(repo_url: str, branch: str | None = None):
 
         # Deinitialize
         subprocess.run(
-            ["git", "submodule", "deinit", "-f", repo_name],
+            ["git", "submodule", "deinit", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
         )
 
         # Remove from git index
         subprocess.run(
-            ["git", "rm", "-f", repo_name],
+            ["git", "rm", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
         )
 
         # Remove .git/modules cache
-        git_modules_path = package_dir / ".git" / "modules" / repo_name
+        git_modules_path = package_dir / ".git" / "modules" / submodule_rel_path
         if git_modules_path.exists():
             shutil.rmtree(git_modules_path)
 
@@ -1172,7 +1179,7 @@ def cmd_add(repo_url: str, branch: str | None = None):
     if branch:
         cmd.extend(["-b", branch])
     cmd.append(repo_url)
-    cmd.append(repo_name)
+    cmd.append(submodule_rel_path)
 
     print(f"Adding submodule: {repo_name}")
     if branch:
@@ -1206,7 +1213,7 @@ def cmd_add(repo_url: str, branch: str | None = None):
                 "--init",
                 "--recursive",
                 "--progress",
-                repo_name,
+                submodule_rel_path,
             ],
             cwd=package_dir,
         )
@@ -1248,7 +1255,11 @@ def cmd_remove(name: str):
     """
     # Get the directory where this script is located (package root)
     package_dir = Path(__file__).parent.resolve()
-    submodule_path = package_dir / name
+    modules_dir = package_dir / "modules"
+
+    # Submodule path relative to package root (for git commands)
+    submodule_rel_path = f"modules/{name}"
+    submodule_path = modules_dir / name
 
     # Check if submodule exists
     if not submodule_path.exists():
@@ -1260,7 +1271,7 @@ def cmd_remove(name: str):
     gitmodules_path = package_dir / ".gitmodules"
     if gitmodules_path.exists():
         gitmodules_content = gitmodules_path.read_text()
-        if f"path = {name}" not in gitmodules_content:
+        if f"path = {submodule_rel_path}" not in gitmodules_content:
             print(f"[ERROR] '{name}' is not a registered submodule")
             print("  Check .gitmodules for available submodules")
             sys.exit(1)
@@ -1276,7 +1287,7 @@ def cmd_remove(name: str):
         # Step 1: Deinitialize the submodule
         print("Deinitializing submodule...")
         result = subprocess.run(
-            ["git", "submodule", "deinit", "-f", name],
+            ["git", "submodule", "deinit", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
             text=True,
@@ -1287,7 +1298,7 @@ def cmd_remove(name: str):
         # Step 2: Remove from git index
         print("Removing from git index...")
         result = subprocess.run(
-            ["git", "rm", "-f", name],
+            ["git", "rm", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
             text=True,
@@ -1297,8 +1308,8 @@ def cmd_remove(name: str):
             print(f"  {result.stderr.strip()}")
             sys.exit(1)
 
-        # Step 3: Remove the .git/modules/<name> directory
-        git_modules_path = package_dir / ".git" / "modules" / name
+        # Step 3: Remove the .git/modules/<path> directory
+        git_modules_path = package_dir / ".git" / "modules" / submodule_rel_path
         if git_modules_path.exists():
             print("Removing cached module data...")
             shutil.rmtree(git_modules_path)

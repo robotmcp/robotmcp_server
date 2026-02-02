@@ -44,14 +44,18 @@ packages = ["."]
 include = [
     "*.py",
     "oauth/*.py",
+    "modules/**/*",
     ".env.public",
+    ".gitmodules",
 ]
 
 [tool.hatch.build.targets.sdist]
 include = [
     "*.py",
     "oauth/*.py",
+    "modules/**/*",
     ".env.public",
+    ".gitmodules",
     "requirements.txt",
     "README.md",
 ]
