@@ -4,7 +4,7 @@ A modular Model Context Protocol (MCP) server with automatic submodule integrati
 
 ## Quick Start
 
-**Option 1: Direct install (recommended)**
+**Option 1: pipx (quick start)**
 ```bash
 # Install via pipx (submodules auto-download on first run)
 pipx install git+https://github.com/robotmcp/robotmcp_server.git
@@ -13,15 +13,20 @@ pipx install git+https://github.com/robotmcp/robotmcp_server.git
 robotmcp-server
 ```
 
-**Option 2: Clone with submodules**
+> **Note:** With a pipx install, you cannot add or remove modules. Use Option 2 if you need module management.
+
+**Option 2: Clone and editable install (recommended)**
 ```bash
 # Clone with submodules included
 git clone --recursive https://github.com/robotmcp/robotmcp_server.git
-pipx install ./robotmcp_server
+cd robotmcp_server
+pip install -e .
 
-# Run
+# Run (opens browser for first-time setup)
 robotmcp-server
 ```
+
+An editable install lets you manage modules with `robotmcp-server add/remove/update`.
 
 ```bash
 # Verify everything is working
