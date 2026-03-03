@@ -52,11 +52,12 @@ See [docs/install.md](docs/install.md) for manual installation and troubleshooti
 ```
 robotmcp_server/
 ├── main.py                    # FastAPI app entry point
-├── submodule_integration.py   # Auto-discover & register submodule tools
-├── submodule_deps.py          # Auto-install submodule dependencies
 ├── cli.py                     # CLI daemon management
 ├── config.py                  # Config management (~/.robotmcp-server/)
 ├── setup.py                   # Browser-based login flow
+├── submodule_integration.py   # Auto-discover & register submodule tools
+├── submodule_deps.py          # Auto-install submodule dependencies
+├── logging_config.py          # Logging with Supabase support
 ├── sse.py                     # Legacy SSE endpoints
 ├── oauth/                     # OAuth module (optional)
 │   ├── endpoints.py           # OAuth routes
@@ -64,7 +65,9 @@ robotmcp_server/
 │   ├── jwt_utils.py           # JWT token generation/validation
 │   ├── stores.py              # Session stores
 │   └── templates.py           # HTML templates
-└── ros-mcp-server/            # Example submodule (ROS integration)
+└── modules/                   # MCP tool modules (git submodules)
+    ├── ros-mcp-server/        # ROS integration module
+    └── test-mcp-server/       # Test/example module
 ```
 
 **Cloud Service:** CLI login and tunnel creation are handled by [robotmcp-cloud](https://github.com/robotmcp/robotmcp_cloud) at `https://app.robotmcp.ai`.
