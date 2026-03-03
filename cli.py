@@ -801,27 +801,25 @@ def cmd_verify():
     """Comprehensive verification of server, tunnel, and connectivity."""
     config = load_config()
 
-    print("\n" + "=" * 70)
-    print("  Comprehensive Tunnel & Server Verification")
-    print("=" * 70)
+    print("\n" + "=" * 50)
+    print(f"  RobotMCP Server Verify (v{VERSION})")
+    print("=" * 50)
 
     # Initialize results tracking
     results = {
         "config": False,
         "server_local": False,
         "cloudflared": False,
-        "tunnel_auth": False,
         "dns": False,
         "tunnel_endpoints": False,
     }
 
     # ========== 1. Configuration Check ==========
-    print("\n[1] Configuration")
-    print("-" * 70)
+    print("\n[Configuration]")
     if not config.has_tunnel():
         print("  ✗ Tunnel not configured")
         print("  → Run: robotmcp-server start")
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 50)
         return
     results["config"] = True
     print("  ✓ Configuration found")
@@ -838,8 +836,7 @@ def cmd_verify():
     hostname = parsed.hostname
 
     # ========== 2. Local Server Test ==========
-    print("\n[2] Local Server Connection")
-    print("-" * 70)
+    print("\n[Local Server]")
     running, pid = is_daemon_running()
     if running:
         print(f"  ✓ Server process running (PID: {pid})")
@@ -848,7 +845,7 @@ def cmd_verify():
     else:
         print("  ✗ Server not running")
         print("  → Run: robotmcp-server start")
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 50)
         return
 
     # Test local HTTP connection
@@ -867,8 +864,7 @@ def cmd_verify():
         print(f"  ✗ Error testing local server: {str(e)[:50]}")
 
     # ========== 3. Cloudflared Process ==========
-    print("\n[3] Cloudflared Process")
-    print("-" * 70)
+    print("\n[Cloudflared]")
     if check_cloudflared_process():
         print("  ✓ Cloudflared process running")
         results["cloudflared"] = True
@@ -890,66 +886,11 @@ def cmd_verify():
     else:
         print("  ✗ Cloudflared process not running")
         print("  → Run: robotmcp-server start")
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 50)
         return
 
-    # ========== 4. Tunnel Authentication & Status ==========
-    print("\n[4] Tunnel Authentication & Status")
-    print("-" * 70)
-    logs = get_cloudflared_logs(100)
-    auth_ok = False
-    connections = 0
-
-    for line in logs:
-        if "Settings: map[token:" in line:
-            print("  ✓ Token loaded by cloudflared")
-            auth_ok = True
-        if "Registered tunnel connection" in line:
-            connections += 1
-            import re
-
-            match = re.search(r"connection=([a-f0-9-]+)", line)
-            if match:
-                conn_id = match.group(1)[:8]
-                print(f"  ✓ Tunnel connection registered: {conn_id}...")
-        if "Updated to new configuration" in line:
-            import json
-            import re
-
-            json_match = re.search(r'config="({[^"]+})"', line)
-            if json_match:
-                try:
-                    config_json = json_match.group(1).replace('\\"', '"')
-                    config_data = json.loads(config_json)
-                    if "ingress" in config_data:
-                        print("  ✓ Configuration received from Cloudflare")
-                        for rule in config_data["ingress"]:
-                            h = rule.get("hostname", "*")
-                            s = rule.get("service", "unknown")
-                            if h != "*":
-                                print(f"    Rule: {h} → {s}")
-                except Exception:
-                    pass
-        if "ERR" in line and any(
-            x in line.lower()
-            for x in ["auth", "unauthorized", "forbidden", "401", "403"]
-        ):
-            print("  ✗ Authentication error in logs")
-            print(f"    {line.strip()[:80]}")
-            auth_ok = False
-
-    if auth_ok and connections > 0:
-        print("  ✓ Authentication: SUCCESS")
-        print(f"  ✓ Active connections: {connections}")
-        results["tunnel_auth"] = True
-    else:
-        print("  ⚠ Authentication status unclear")
-        if not auth_ok:
-            print("    → Check cloudflared logs for errors")
-
-    # ========== 5. DNS Resolution ==========
-    print("\n[5] DNS Resolution")
-    print("-" * 70)
+    # ========== 4. DNS Resolution ==========
+    print("\n[DNS Resolution]")
     if hostname:
         try:
             import socket
@@ -985,9 +926,8 @@ def cmd_verify():
         print("  ✗ Invalid tunnel URL")
         results["dns"] = False
 
-    # ========== 6. Tunnel Endpoint Tests ==========
-    print("\n[6] Tunnel Endpoint Tests")
-    print("-" * 70)
+    # ========== 5. Tunnel Endpoint Tests ==========
+    print("\n[Tunnel Endpoints]")
     if not results["dns"]:
         print("  ⚠ Skipping tunnel tests (DNS not configured)")
         print("    → Fix DNS first, then re-run verify")
@@ -1037,23 +977,20 @@ def cmd_verify():
         results["tunnel_endpoints"] = all_endpoints_ok
 
     # ========== Summary ==========
-    print("\n" + "=" * 70)
-    print("  Verification Summary")
-    print("=" * 70)
+    print("\n" + "=" * 50)
+    print("  Summary")
+    print("=" * 50)
 
     total_checks = len(results)
     passed_checks = sum(1 for v in results.values() if v)
 
     print(f"\n  Checks passed: {passed_checks}/{total_checks}")
-    print("\n  Status:")
-    print(f"    [1] Configuration:        {'✓' if results['config'] else '✗'}")
-    print(f"    [2] Local Server:         {'✓' if results['server_local'] else '✗'}")
-    print(f"    [3] Cloudflared Process:  {'✓' if results['cloudflared'] else '✗'}")
-    print(f"    [4] Tunnel Authentication: {'✓' if results['tunnel_auth'] else '✗'}")
-    print(f"    [5] DNS Resolution:       {'✓' if results['dns'] else '✗'}")
-    print(
-        f"    [6] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}"
-    )
+    print()
+    print(f"  Configuration:      {'✓' if results['config'] else '✗'}")
+    print(f"  Local Server:       {'✓' if results['server_local'] else '✗'}")
+    print(f"  Cloudflared:        {'✓' if results['cloudflared'] else '✗'}")
+    print(f"  DNS Resolution:     {'✓' if results['dns'] else '✗'}")
+    print(f"  Tunnel Endpoints:   {'✓' if results['tunnel_endpoints'] else '✗'}")
 
     if all(results.values()):
         print("\n  ✓ All checks passed! Your MCP server is fully operational.")
@@ -1123,8 +1060,15 @@ def cmd_add(repo_url: str, branch: str | None = None):
     # Get the directory where this script is located (package root)
     package_dir = Path(__file__).parent.resolve()
 
+    # Modules are stored in the modules/ subdirectory
+    modules_dir = package_dir / "modules"
+    modules_dir.mkdir(exist_ok=True)
+
+    # Submodule path relative to package root (for git commands)
+    submodule_rel_path = f"modules/{repo_name}"
+
     # Check if already exists
-    submodule_path = package_dir / repo_name
+    submodule_path = modules_dir / repo_name
     if submodule_path.exists():
         print(f"Module '{repo_name}' already exists.")
         try:
@@ -1143,20 +1087,20 @@ def cmd_add(repo_url: str, branch: str | None = None):
 
         # Deinitialize
         subprocess.run(
-            ["git", "submodule", "deinit", "-f", repo_name],
+            ["git", "submodule", "deinit", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
         )
 
         # Remove from git index
         subprocess.run(
-            ["git", "rm", "-f", repo_name],
+            ["git", "rm", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
         )
 
         # Remove .git/modules cache
-        git_modules_path = package_dir / ".git" / "modules" / repo_name
+        git_modules_path = package_dir / ".git" / "modules" / submodule_rel_path
         if git_modules_path.exists():
             shutil.rmtree(git_modules_path)
 
@@ -1172,7 +1116,7 @@ def cmd_add(repo_url: str, branch: str | None = None):
     if branch:
         cmd.extend(["-b", branch])
     cmd.append(repo_url)
-    cmd.append(repo_name)
+    cmd.append(submodule_rel_path)
 
     print(f"Adding submodule: {repo_name}")
     if branch:
@@ -1206,7 +1150,7 @@ def cmd_add(repo_url: str, branch: str | None = None):
                 "--init",
                 "--recursive",
                 "--progress",
-                repo_name,
+                submodule_rel_path,
             ],
             cwd=package_dir,
         )
@@ -1248,7 +1192,11 @@ def cmd_remove(name: str):
     """
     # Get the directory where this script is located (package root)
     package_dir = Path(__file__).parent.resolve()
-    submodule_path = package_dir / name
+    modules_dir = package_dir / "modules"
+
+    # Submodule path relative to package root (for git commands)
+    submodule_rel_path = f"modules/{name}"
+    submodule_path = modules_dir / name
 
     # Check if submodule exists
     if not submodule_path.exists():
@@ -1260,7 +1208,7 @@ def cmd_remove(name: str):
     gitmodules_path = package_dir / ".gitmodules"
     if gitmodules_path.exists():
         gitmodules_content = gitmodules_path.read_text()
-        if f"path = {name}" not in gitmodules_content:
+        if f"path = {submodule_rel_path}" not in gitmodules_content:
             print(f"[ERROR] '{name}' is not a registered submodule")
             print("  Check .gitmodules for available submodules")
             sys.exit(1)
@@ -1276,7 +1224,7 @@ def cmd_remove(name: str):
         # Step 1: Deinitialize the submodule
         print("Deinitializing submodule...")
         result = subprocess.run(
-            ["git", "submodule", "deinit", "-f", name],
+            ["git", "submodule", "deinit", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
             text=True,
@@ -1287,7 +1235,7 @@ def cmd_remove(name: str):
         # Step 2: Remove from git index
         print("Removing from git index...")
         result = subprocess.run(
-            ["git", "rm", "-f", name],
+            ["git", "rm", "-f", submodule_rel_path],
             cwd=package_dir,
             capture_output=True,
             text=True,
@@ -1297,8 +1245,8 @@ def cmd_remove(name: str):
             print(f"  {result.stderr.strip()}")
             sys.exit(1)
 
-        # Step 3: Remove the .git/modules/<name> directory
-        git_modules_path = package_dir / ".git" / "modules" / name
+        # Step 3: Remove the .git/modules/<path> directory
+        git_modules_path = package_dir / ".git" / "modules" / submodule_rel_path
         if git_modules_path.exists():
             print("Removing cached module data...")
             shutil.rmtree(git_modules_path)
@@ -1683,12 +1631,7 @@ def cmd_list_tools():
             print()
             print(f"  [{prefix}] ({len(tool_list)} tools)")
             for name, tool in tool_list:
-                desc = tool.description or "No description"
-                # Truncate long descriptions
-                if len(desc) > 50:
-                    desc = desc[:47] + "..."
                 print(f"    {name}")
-                print(f"      {desc}")
 
         print()
         print("=" * 70)
