@@ -801,9 +801,9 @@ def cmd_verify():
     """Comprehensive verification of server, tunnel, and connectivity."""
     config = load_config()
 
-    print("\n" + "=" * 70)
-    print("  Comprehensive Tunnel & Server Verification")
-    print("=" * 70)
+    print("\n" + "=" * 50)
+    print(f"  RobotMCP Server Verify (v{VERSION})")
+    print("=" * 50)
 
     # Initialize results tracking
     results = {
@@ -815,12 +815,11 @@ def cmd_verify():
     }
 
     # ========== 1. Configuration Check ==========
-    print("\n[1] Configuration")
-    print("-" * 70)
+    print("\n[Configuration]")
     if not config.has_tunnel():
         print("  ✗ Tunnel not configured")
         print("  → Run: robotmcp-server start")
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 50)
         return
     results["config"] = True
     print("  ✓ Configuration found")
@@ -837,8 +836,7 @@ def cmd_verify():
     hostname = parsed.hostname
 
     # ========== 2. Local Server Test ==========
-    print("\n[2] Local Server Connection")
-    print("-" * 70)
+    print("\n[Local Server]")
     running, pid = is_daemon_running()
     if running:
         print(f"  ✓ Server process running (PID: {pid})")
@@ -847,7 +845,7 @@ def cmd_verify():
     else:
         print("  ✗ Server not running")
         print("  → Run: robotmcp-server start")
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 50)
         return
 
     # Test local HTTP connection
@@ -866,8 +864,7 @@ def cmd_verify():
         print(f"  ✗ Error testing local server: {str(e)[:50]}")
 
     # ========== 3. Cloudflared Process ==========
-    print("\n[3] Cloudflared Process")
-    print("-" * 70)
+    print("\n[Cloudflared]")
     if check_cloudflared_process():
         print("  ✓ Cloudflared process running")
         results["cloudflared"] = True
@@ -889,12 +886,11 @@ def cmd_verify():
     else:
         print("  ✗ Cloudflared process not running")
         print("  → Run: robotmcp-server start")
-        print("\n" + "=" * 70)
+        print("\n" + "=" * 50)
         return
 
     # ========== 4. DNS Resolution ==========
-    print("\n[4] DNS Resolution")
-    print("-" * 70)
+    print("\n[DNS Resolution]")
     if hostname:
         try:
             import socket
@@ -931,8 +927,7 @@ def cmd_verify():
         results["dns"] = False
 
     # ========== 5. Tunnel Endpoint Tests ==========
-    print("\n[5] Tunnel Endpoint Tests")
-    print("-" * 70)
+    print("\n[Tunnel Endpoints]")
     if not results["dns"]:
         print("  ⚠ Skipping tunnel tests (DNS not configured)")
         print("    → Fix DNS first, then re-run verify")
@@ -982,22 +977,20 @@ def cmd_verify():
         results["tunnel_endpoints"] = all_endpoints_ok
 
     # ========== Summary ==========
-    print("\n" + "=" * 70)
-    print("  Verification Summary")
-    print("=" * 70)
+    print("\n" + "=" * 50)
+    print("  Summary")
+    print("=" * 50)
 
     total_checks = len(results)
     passed_checks = sum(1 for v in results.values() if v)
 
     print(f"\n  Checks passed: {passed_checks}/{total_checks}")
-    print("\n  Status:")
-    print(f"    [1] Configuration:        {'✓' if results['config'] else '✗'}")
-    print(f"    [2] Local Server:         {'✓' if results['server_local'] else '✗'}")
-    print(f"    [3] Cloudflared Process:  {'✓' if results['cloudflared'] else '✗'}")
-    print(f"    [4] DNS Resolution:       {'✓' if results['dns'] else '✗'}")
-    print(
-        f"    [5] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}"
-    )
+    print()
+    print(f"  Configuration:      {'✓' if results['config'] else '✗'}")
+    print(f"  Local Server:       {'✓' if results['server_local'] else '✗'}")
+    print(f"  Cloudflared:        {'✓' if results['cloudflared'] else '✗'}")
+    print(f"  DNS Resolution:     {'✓' if results['dns'] else '✗'}")
+    print(f"  Tunnel Endpoints:   {'✓' if results['tunnel_endpoints'] else '✗'}")
 
     if all(results.values()):
         print("\n  ✓ All checks passed! Your MCP server is fully operational.")
