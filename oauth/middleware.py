@@ -28,9 +28,10 @@ ROBOTMCP_CLOUD_URL = os.getenv("ROBOTMCP_CLOUD_URL", "https://app.robotmcp.ai")
 
 def get_server_url() -> str:
     """Get the server URL for OAuth metadata."""
-    return _config.tunnel_url or os.getenv(
-        "SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app"
-    )
+    url = _config.tunnel_url
+    if not url:
+        raise RuntimeError("No tunnel URL configured. Run 'robotmcp-server' to complete setup.")
+    return url
 
 
 async def check_shared_access(robot_name: str, user_id: str) -> bool:

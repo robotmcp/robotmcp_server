@@ -96,5 +96,5 @@ robotmcp-server logout    # Clear credentials
 
 CLI auto-detects WSL and uses the correct IP for browser callback:
 - Gets WSL IP via `hostname -I`
-- Passes to Railway for callback redirect
+- Passes to cloud service for callback redirect
 - Works with Windows browser + WSL CLI

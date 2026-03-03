@@ -231,20 +231,14 @@ python cli.py --version
 
 ## Available MCP Tools
 
-Once connected, you can use these tools:
+Tools are provided by modules (git submodules). The server auto-discovers and registers all module tools at startup.
 
-### echo
-Echoes back your message.
-```
-Input: "Hello, world!"
-Output: "Echo: Hello, world!"
+To see which tools are currently available:
+```bash
+robotmcp-server list-tools
 ```
 
-### ping
-Tests connectivity to the server.
-```
-Output: "pong from owner's MCP server"
-```
+For the default ROS-MCP module tools, see the [ROS-MCP documentation](https://github.com/robotmcp/ros-mcp-server).
 
 ---
 

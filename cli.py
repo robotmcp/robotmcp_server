@@ -3,7 +3,7 @@
 Copyright (c) 2025 Contoro. All rights reserved.
 
 This runs the LOCAL MCP server on the user's machine.
-On first run, it opens a browser for login via Railway.
+On first run, it opens a browser for login via the cloud service.
 """
 
 import argparse
