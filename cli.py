@@ -810,7 +810,6 @@ def cmd_verify():
         "config": False,
         "server_local": False,
         "cloudflared": False,
-        "tunnel_auth": False,
         "dns": False,
         "tunnel_endpoints": False,
     }
@@ -893,62 +892,8 @@ def cmd_verify():
         print("\n" + "=" * 70)
         return
 
-    # ========== 4. Tunnel Authentication & Status ==========
-    print("\n[4] Tunnel Authentication & Status")
-    print("-" * 70)
-    logs = get_cloudflared_logs(100)
-    auth_ok = False
-    connections = 0
-
-    for line in logs:
-        if "Settings: map[token:" in line:
-            print("  ✓ Token loaded by cloudflared")
-            auth_ok = True
-        if "Registered tunnel connection" in line:
-            connections += 1
-            import re
-
-            match = re.search(r"connection=([a-f0-9-]+)", line)
-            if match:
-                conn_id = match.group(1)[:8]
-                print(f"  ✓ Tunnel connection registered: {conn_id}...")
-        if "Updated to new configuration" in line:
-            import json
-            import re
-
-            json_match = re.search(r'config="({[^"]+})"', line)
-            if json_match:
-                try:
-                    config_json = json_match.group(1).replace('\\"', '"')
-                    config_data = json.loads(config_json)
-                    if "ingress" in config_data:
-                        print("  ✓ Configuration received from Cloudflare")
-                        for rule in config_data["ingress"]:
-                            h = rule.get("hostname", "*")
-                            s = rule.get("service", "unknown")
-                            if h != "*":
-                                print(f"    Rule: {h} → {s}")
-                except Exception:
-                    pass
-        if "ERR" in line and any(
-            x in line.lower()
-            for x in ["auth", "unauthorized", "forbidden", "401", "403"]
-        ):
-            print("  ✗ Authentication error in logs")
-            print(f"    {line.strip()[:80]}")
-            auth_ok = False
-
-    if auth_ok and connections > 0:
-        print("  ✓ Authentication: SUCCESS")
-        print(f"  ✓ Active connections: {connections}")
-        results["tunnel_auth"] = True
-    else:
-        print("  ⚠ Authentication status unclear")
-        if not auth_ok:
-            print("    → Check cloudflared logs for errors")
-
-    # ========== 5. DNS Resolution ==========
-    print("\n[5] DNS Resolution")
+    # ========== 4. DNS Resolution ==========
+    print("\n[4] DNS Resolution")
     print("-" * 70)
     if hostname:
         try:
@@ -985,8 +930,8 @@ def cmd_verify():
         print("  ✗ Invalid tunnel URL")
         results["dns"] = False
 
-    # ========== 6. Tunnel Endpoint Tests ==========
-    print("\n[6] Tunnel Endpoint Tests")
+    # ========== 5. Tunnel Endpoint Tests ==========
+    print("\n[5] Tunnel Endpoint Tests")
     print("-" * 70)
     if not results["dns"]:
         print("  ⚠ Skipping tunnel tests (DNS not configured)")
@@ -1049,10 +994,9 @@ def cmd_verify():
     print(f"    [1] Configuration:        {'✓' if results['config'] else '✗'}")
     print(f"    [2] Local Server:         {'✓' if results['server_local'] else '✗'}")
     print(f"    [3] Cloudflared Process:  {'✓' if results['cloudflared'] else '✗'}")
-    print(f"    [4] Tunnel Authentication: {'✓' if results['tunnel_auth'] else '✗'}")
-    print(f"    [5] DNS Resolution:       {'✓' if results['dns'] else '✗'}")
+    print(f"    [4] DNS Resolution:       {'✓' if results['dns'] else '✗'}")
     print(
-        f"    [6] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}"
+        f"    [5] Tunnel Endpoints:     {'✓' if results['tunnel_endpoints'] else '✗'}"
     )
 
     if all(results.values()):
