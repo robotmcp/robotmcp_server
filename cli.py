@@ -1694,12 +1694,7 @@ def cmd_list_tools():
             print()
             print(f"  [{prefix}] ({len(tool_list)} tools)")
             for name, tool in tool_list:
-                desc = tool.description or "No description"
-                # Truncate long descriptions
-                if len(desc) > 50:
-                    desc = desc[:47] + "..."
                 print(f"    {name}")
-                print(f"      {desc}")
 
         print()
         print("=" * 70)
