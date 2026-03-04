@@ -2003,12 +2003,6 @@ Examples:
 """,
     )
 
-    # Legacy flags for backward compatibility
-    parser.add_argument("--status", action="store_true", help="Show current status (legacy)")
-    parser.add_argument("--stop", action="store_true", help="Stop the server (legacy)")
-    parser.add_argument("--logout", action="store_true", help="Log out (legacy)")
-    parser.add_argument("--version", "-v", action="store_true", help="Show version")
-
     # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
 
@@ -2059,17 +2053,7 @@ Examples:
 
     args = parser.parse_args()
 
-    # Handle legacy flags
-    if args.status:
-        cmd_status()
-    elif args.stop:
-        cmd_stop()
-    elif args.logout:
-        cmd_logout()
-    elif args.version:
-        cmd_version()
-    # Handle commands
-    elif args.command == "start":
+    if args.command == "start":
         cmd_start()
     elif args.command == "stop":
         cmd_stop()
