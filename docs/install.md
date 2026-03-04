@@ -2,7 +2,7 @@
 
 **Copyright (c) 2025 Contoro. All rights reserved.**
 
-This guide covers installing and using robotmcp-server (v2.1.0) on your local machine.
+This guide covers installing and using robotmcp-server (v2.2.0) on your local machine.
 
 > **Note:** CLI login and tunnel creation are handled by the cloud service at `https://app.robotmcp.ai`.
 
