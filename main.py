@@ -79,7 +79,9 @@ logger.info(
 # SERVER_URL: Tunnel URL for this local server (used for OAuth metadata)
 SERVER_URL = local_config.tunnel_url
 if not SERVER_URL:
-    logger.warning("[STARTUP] No tunnel URL configured. OAuth will not work until setup is complete.")
+    logger.warning(
+        "[STARTUP] No tunnel URL configured. OAuth will not work until setup is complete."
+    )
     SERVER_URL = f"http://localhost:{MCP_PORT}"
 logger.info(f"[STARTUP] SERVER_URL: {SERVER_URL}")
 logger.info(f"[STARTUP] OAuth enabled: {ENABLE_OAUTH}")

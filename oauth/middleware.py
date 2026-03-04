@@ -30,7 +30,9 @@ def get_server_url() -> str:
     """Get the server URL for OAuth metadata."""
     url = _config.tunnel_url
     if not url:
-        raise RuntimeError("No tunnel URL configured. Run 'robotmcp-server' to complete setup.")
+        raise RuntimeError(
+            "No tunnel URL configured. Run 'robotmcp-server' to complete setup."
+        )
     return url
 
 
