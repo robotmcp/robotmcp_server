@@ -164,23 +164,37 @@ This will:
 
 You'll see a startup banner like this:
 ```
-==================================================
-  RobotMCP Server
-==================================================
-  User:   you@example.com
-  SSE:    https://myrobot.robotmcp.ai/sse
-==================================================
-  Copy the SSE URL above to your MCP client
-  (ChatGPT, Claude, etc.)
+============================================================
+  RobotMCP Server - Started
+============================================================
+  User:    you@example.com
 
-  Server running in background.
-  Run 'robotmcp-server stop' to stop.
-==================================================
+  Endpoints:
+    /mcp  https://myrobot.robotmcp.ai/mcp
+    /sse  https://myrobot.robotmcp.ai/sse
+
+  +------------------------------------------------------+
+  |  HOW TO CONNECT YOUR AI CLIENT                       |
+  +------------------------------------------------------+
+
+  1. Try /mcp first (recommended):
+     https://myrobot.robotmcp.ai/mcp
+
+  2. If /mcp doesn't work, use /sse instead:
+     https://myrobot.robotmcp.ai/sse
+
+============================================================
+  Log:    ~/.robotmcp-server/server.log
+  Stop:   robotmcp-server stop
+  Status: robotmcp-server status
+============================================================
 ```
 
 ---
 
 ## CLI Commands
+
+### Server Management
 
 | Command | Description |
 |---------|-------------|
@@ -188,22 +202,28 @@ You'll see a startup banner like this:
 | `robotmcp-server start` | Start server in background |
 | `robotmcp-server stop` | Stop server and tunnel |
 | `robotmcp-server restart` | Restart the server |
-| `robotmcp-server status` | Show current status (PID, log file) |
+| `robotmcp-server status` | Show current status and configuration |
+| `robotmcp-server verify` | Test tunnel connectivity and endpoints |
+| `robotmcp-server login` | Log in to RobotMCP (browser OAuth) |
 | `robotmcp-server logout` | Clear credentials and stop |
-| `robotmcp-server version` | Show version info |
+| `robotmcp-server version` | Show version information |
 | `robotmcp-server help` | Show detailed help |
 
+### Module Management
+
+| Command | Description |
+|---------|-------------|
+| `robotmcp-server list` | List installed MCP server modules with compatibility status |
+| `robotmcp-server list-tools` | List all available MCP tools from compatible modules |
+| `robotmcp-server add <url>` | Add an MCP server module (git submodule) |
+| `robotmcp-server add -b <branch> <url>` | Add a module tracking a specific branch |
+| `robotmcp-server remove <name>` | Remove an MCP server module |
+| `robotmcp-server update` | Update all MCP server modules to latest |
+| `robotmcp-server repair` | Re-initialize missing submodules |
+
+> **Note:** Module management (`add`, `remove`, `update`) requires an editable install (Option 2). pipx installs cannot modify modules.
+
 **Note:** The server runs as a background daemon. Logs are written to `~/.robotmcp-server/server.log`.
-
-### Legacy Flag Support
-
-For backward compatibility, these flags also work:
-```bash
-python cli.py --status
-python cli.py --stop
-python cli.py --logout
-python cli.py --version
-```
 
 ---
 
@@ -260,7 +280,7 @@ Configuration is stored in `~/.robotmcp-server/config.json`:
 
 To view your current configuration:
 ```bash
-python cli.py status
+robotmcp-server status
 ```
 
 ---
@@ -273,7 +293,7 @@ If cloudflared is installed as a Windows service, it may intercept tunnel traffi
 
 ```powershell
 # Check status
-python cli.py status
+robotmcp-server status
 
 # Stop service (Admin Command Prompt)
 net stop cloudflared
@@ -288,7 +308,7 @@ The CLI automatically cleans up old processes. If issues persist:
 
 ```powershell
 # Stop via CLI
-python cli.py stop
+robotmcp-server stop
 
 # Or manually find and kill
 netstat -ano | findstr :8766
@@ -297,15 +317,16 @@ taskkill /F /PID <pid>
 
 ### Server Not Accessible via Tunnel
 
-1. Check cloudflared is installed: `cloudflared --version`
-2. Check tunnel status: `python cli.py status`
-3. Ensure no Windows service conflict (see above)
-4. Try restarting: `python cli.py restart`
+1. Run diagnostics: `robotmcp-server verify`
+2. Check cloudflared is installed: `cloudflared --version`
+3. Check tunnel status: `robotmcp-server status`
+4. Ensure no Windows service conflict (see above)
+5. Try restarting: `robotmcp-server restart`
 
 ### OAuth Login Issues
 
-1. Clear credentials: `python cli.py logout`
-2. Start fresh: `python cli.py start`
+1. Clear credentials: `robotmcp-server logout`
+2. Start fresh: `robotmcp-server start`
 3. Check `.env` file has correct Supabase credentials
 
 ### "Access denied: not authorized for this server"
