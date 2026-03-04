@@ -3,7 +3,7 @@
 Copyright (c) 2025 Contoro. All rights reserved.
 
 This runs the LOCAL MCP server on the user's machine.
-On first run, it opens a browser for login via Railway.
+On first run, it opens a browser for login via the cloud service.
 """
 
 import argparse
@@ -1908,6 +1908,7 @@ Copyright (c) 2025 Contoro. All rights reserved.
 
 USAGE:
     robotmcp-server <command>
+    robotmcp-server              (defaults to 'start')
 
 COMMANDS:
     start       Start the MCP server in background
@@ -1988,7 +1989,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="robotmcp-server",
-        description="RobotMCP Server - Local MCP server with OAuth",
+        description="RobotMCP Server - Local MCP server with OAuth. Running without a command defaults to 'start'.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -2001,12 +2002,6 @@ Examples:
   robotmcp-server update
 """,
     )
-
-    # Legacy flags for backward compatibility
-    parser.add_argument("--status", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--stop", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--logout", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--version", "-v", action="store_true", help=argparse.SUPPRESS)
 
     # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
@@ -2058,17 +2053,7 @@ Examples:
 
     args = parser.parse_args()
 
-    # Handle legacy flags
-    if args.status:
-        cmd_status()
-    elif args.stop:
-        cmd_stop()
-    elif args.logout:
-        cmd_logout()
-    elif args.version:
-        cmd_version()
-    # Handle commands
-    elif args.command == "start":
+    if args.command == "start":
         cmd_start()
     elif args.command == "stop":
         cmd_stop()

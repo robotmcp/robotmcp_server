@@ -52,12 +52,12 @@ See [docs/install.md](docs/install.md) for manual installation and troubleshooti
 ```
 robotmcp_server/
 ├── main.py                    # FastAPI app entry point
-├── submodule_integration.py   # Auto-discover & register submodule tools
-├── submodule_deps.py          # Auto-install submodule dependencies
-├── tools.py                   # Built-in MCP tools (echo, ping)
 ├── cli.py                     # CLI daemon management
 ├── config.py                  # Config management (~/.robotmcp-server/)
 ├── setup.py                   # Browser-based login flow
+├── submodule_integration.py   # Auto-discover & register submodule tools
+├── submodule_deps.py          # Auto-install submodule dependencies
+├── logging_config.py          # Logging with Supabase support
 ├── sse.py                     # Legacy SSE endpoints
 ├── oauth/                     # OAuth module (optional)
 │   ├── endpoints.py           # OAuth routes
@@ -65,7 +65,9 @@ robotmcp_server/
 │   ├── jwt_utils.py           # JWT token generation/validation
 │   ├── stores.py              # Session stores
 │   └── templates.py           # HTML templates
-└── ros-mcp-server/            # Example submodule (ROS integration)
+└── modules/                   # MCP tool modules (git submodules)
+    ├── ros-mcp-server/        # ROS integration module
+    └── test-mcp-server/       # Test/example module
 ```
 
 **Cloud Service:** CLI login and tunnel creation are handled by [robotmcp-cloud](https://github.com/robotmcp/robotmcp_cloud) at `https://app.robotmcp.ai`.
@@ -99,9 +101,8 @@ robotmcp-server verify
 1. **Configuration** - Verifies tunnel token and configuration exist
 2. **Local Server** - Tests server connectivity on `localhost:8766`
 3. **Cloudflared Process** - Checks if cloudflared is running
-4. **Tunnel Authentication** - Analyzes logs to verify tunnel is authenticated and connected
-5. **DNS Resolution** - Verifies DNS record exists and resolves correctly
-6. **Tunnel Endpoints** - Tests endpoints through the tunnel (`/`, `/health`)
+4. **DNS Resolution** - Verifies DNS record exists and resolves correctly
+5. **Tunnel Endpoints** - Tests endpoints through the tunnel (`/`, `/health`)
 
 **Output includes:**
 - ✓/✗ status for each check
@@ -197,19 +198,6 @@ def register(mcp: FastMCP, **kwargs) -> None:
 - How to organize tools, resources, and prompts
 - Environment variable configuration
 - Testing your submodule
-
-## Custom Tools (without submodules)
-
-To add custom MCP tools directly, edit `tools.py`:
-
-```python
-from fastmcp import FastMCP
-mcp = FastMCP("my-server")
-
-@mcp.tool()
-def my_tool(param: str) -> str:
-    return f"Result: {param}"
-```
 
 ## Documentation
 

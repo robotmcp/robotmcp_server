@@ -1,6 +1,6 @@
 """HTML templates for OAuth and CLI login flows.
 
-These templates are shared across main.py, setup.py, and railway.py
+These templates are shared across main.py and setup.py
 to eliminate duplication.
 
 Claude theme colors:

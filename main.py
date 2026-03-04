@@ -9,7 +9,7 @@ It handles:
 - CLI login endpoints (/cli-login, /cli-signup)
 
 MCP clients (ChatGPT, Claude, etc.) connect directly to this server
-via Cloudflare tunnel. Railway is NOT involved in MCP traffic.
+via Cloudflare tunnel. The cloud service is NOT involved in MCP traffic.
 """
 
 import os
@@ -76,11 +76,13 @@ logger.info(
     f"[STARTUP] Config loaded - valid: {local_config.is_valid()}, email: {local_config.email}"
 )
 
-# SERVER_URL: Use tunnel URL if available (for local MCP server), otherwise fallback to env/default
-# This is critical for OAuth - MCP clients need to authenticate on THIS server, not Railway
-SERVER_URL = local_config.tunnel_url or os.getenv(
-    "SERVER_URL", "https://simplemcpserver-production-e610.up.railway.app"
-)
+# SERVER_URL: Tunnel URL for this local server (used for OAuth metadata)
+SERVER_URL = local_config.tunnel_url
+if not SERVER_URL:
+    logger.warning(
+        "[STARTUP] No tunnel URL configured. OAuth will not work until setup is complete."
+    )
+    SERVER_URL = f"http://localhost:{MCP_PORT}"
 logger.info(f"[STARTUP] SERVER_URL: {SERVER_URL}")
 logger.info(f"[STARTUP] OAuth enabled: {ENABLE_OAUTH}")
 logger.info("[STARTUP] Submodule auto-discovery enabled")
@@ -156,7 +158,7 @@ app.include_router(sse_router)
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint for Railway."""
+    """Health check endpoint."""
     return {"status": "healthy", "service": "mcp-server", "transport": MCP_TRANSPORT}
 
 
