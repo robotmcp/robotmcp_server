@@ -61,6 +61,13 @@ def load_config() -> Config:
     try:
         with open(CONFIG_FILE, "r") as f:
             data = json.load(f)
+        if not isinstance(data, dict):
+            return Config()
+        # Ensure all values are strings or None (guard against manual edits)
+        for key in ("user_id", "email", "access_token", "refresh_token",
+                     "robot_name", "tunnel_token", "tunnel_url"):
+            if key in data and data[key] is not None and not isinstance(data[key], str):
+                data[key] = str(data[key])
         return Config(data)
     except (json.JSONDecodeError, IOError):
         return Config()
