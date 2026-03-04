@@ -1908,6 +1908,7 @@ Copyright (c) 2025 Contoro. All rights reserved.
 
 USAGE:
     robotmcp-server <command>
+    robotmcp-server              (defaults to 'start')
 
 COMMANDS:
     start       Start the MCP server in background
@@ -1988,7 +1989,7 @@ def main():
 
     parser = argparse.ArgumentParser(
         prog="robotmcp-server",
-        description="RobotMCP Server - Local MCP server with OAuth",
+        description="RobotMCP Server - Local MCP server with OAuth. Running without a command defaults to 'start'.",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -2003,10 +2004,10 @@ Examples:
     )
 
     # Legacy flags for backward compatibility
-    parser.add_argument("--status", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--stop", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--logout", action="store_true", help=argparse.SUPPRESS)
-    parser.add_argument("--version", "-v", action="store_true", help=argparse.SUPPRESS)
+    parser.add_argument("--status", action="store_true", help="Show current status (legacy)")
+    parser.add_argument("--stop", action="store_true", help="Stop the server (legacy)")
+    parser.add_argument("--logout", action="store_true", help="Log out (legacy)")
+    parser.add_argument("--version", "-v", action="store_true", help="Show version")
 
     # Create subparsers for commands
     subparsers = parser.add_subparsers(dest="command", help="Command to run")
