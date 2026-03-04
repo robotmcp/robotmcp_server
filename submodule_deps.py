@@ -131,14 +131,15 @@ def install_submodule(submodule_path: Path, verbose: bool = True) -> bool:
     Returns:
         True if installation succeeded, False otherwise.
     """
-    # Try different pip invocation methods
-    pip_commands = [
+    # Try uv first (faster), then fall back to pip
+    commands = [
+        ["uv", "pip", "install", "-e", str(submodule_path)],
         [sys.executable, "-m", "pip", "install", "-e", str(submodule_path)],
         ["pip", "install", "-e", str(submodule_path)],
         ["pip3", "install", "-e", str(submodule_path)],
     ]
 
-    for cmd in pip_commands:
+    for cmd in commands:
         try:
             result = subprocess.run(
                 cmd,

@@ -2,38 +2,39 @@
 
 A modular Model Context Protocol (MCP) server with automatic submodule integration, OAuth 2.1 authentication, Supabase user management, and Cloudflare tunnel support. Works with ChatGPT and Claude.ai.
 
-## Quick Start
+## Installation
 
-**Option 1: pipx (quick start)**
+### For Users
+
 ```bash
-# Install via pipx (submodules auto-download on first run)
-pipx install git+https://github.com/robotmcp/robotmcp_server.git
+# Using uv (recommended)
+uv tool install robotmcp-server
+robotmcp-server
 
-# Run (opens browser for first-time setup)
+# Using pip
+pip install robotmcp-server
 robotmcp-server
 ```
 
-> **Note:** With a pipx install, you cannot add or remove modules. Use Option 2 if you need module management.
+### For Developers
 
-**Option 2: Clone and editable install (recommended)**
 ```bash
-# Clone with submodules included
 git clone --recursive https://github.com/robotmcp/robotmcp_server.git
 cd robotmcp_server
-pip install -e .
 
-# Run (opens browser for first-time setup)
+# Using uv (recommended)
+uv venv
+uv pip install -e .
+uv run robotmcp-server
+
+# Using pip
+pip install -e .
 robotmcp-server
 ```
 
-An editable install lets you manage modules with `robotmcp-server add/remove/update`.
+Edit submodule code directly in `modules/` — changes take effect immediately.
 
-```bash
-# Verify everything is working
-robotmcp-server verify
-```
-
-See [docs/install.md](docs/install.md) for manual installation and troubleshooting.
+You can also manage modules with `robotmcp-server add/remove/update`.
 
 ## Features
 
